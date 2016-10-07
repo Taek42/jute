@@ -6,6 +6,58 @@ import (
 	"strconv"
 )
 
+// bridges finds all edges that lead from an ancestor of mainChild to an
+// ancestor of tip that is not an ancestor of mainChild.
+func bridges(tip, mainChild *GraphNode) ([]edgeName, []*GraphNode) {
+	// Perform a BFS on all parents/ancestors of the tip node.
+	var bridgeEdges []edgeName
+	var correspondingParents []*GraphNode
+	visited := make(map[nodeName]bool)
+	unvisited := tip.parents
+	for len(unvisited) != 0 {
+		// Grab the next ancestor.
+		ancestor := unvisited[0]
+		unvisited = unvisited[1:]
+
+		// If the ancestor is visible from the main child, ignore it, as we're
+		// looking for nodes that aren't visible from the main child.
+		if len(ancestor.parents) == 0 {
+			// Genesis block - definitely visible from the main child.
+			continue
+		}
+		e := edge(ancestor.name, ancestor.parents[0].name)
+		if _, exists := mainChild.relativeVoteGraph[e]; exists {
+			// If any edge from this node to a parent is in the main child vote
+			// graph, every edge from this node to a parent will be in the main
+			// child vote graph, only need to check one.
+			continue
+		}
+
+		// We know that the node is not visible from the main chain. Find all
+		// edges that point from the ancestor to a node visible from the main
+		// chain. There may not be any.
+		for _, parent := range ancestor.parents {
+			if len(parent.parents) == 0 {
+				// Genesis block - definitely visible from the main child.
+				bridgeEdges = append(bridgeEdges, e)
+				correspondingParents = append(correspondingParents, parent)
+				continue
+			}
+			e := edge(parent.name, parent.parents[0].name)
+			if _, exists := mainChild.relativeVoteGraph[e]; exists {
+				// Found a bridge edge, add it.
+				bridgeEdges = append(bridgeEdges, e)
+				correspondingParents = append(correspondingParents, parent)
+			} else if !visited[parent.name] {
+				visited[parent.name] = true
+				unvisited = append(unvisited, parent)
+			}
+		}
+	}
+
+	return bridgeEdges, correspondingParents
+}
+
 // nextMainNode uses the vote graph and hash of the tip block to select between
 // the children of the provided parent. The selected child is the next block in
 // the main chain.
@@ -112,15 +164,73 @@ func (g *Graph) CreateNode(parents ...*GraphNode) *GraphNode {
 		e := edge(winner.name, current.name)
 		tip.relativeVoteGraph[e]++
 		tip.edgeVotes = append(tip.edgeVotes, e)
-		current = winner
 
 		// An additional rule allows us to protect against low-latency
 		// minorities. The newest edge in the main chain without the extra rule
 		// will always have just one vote. The extra rule is necessary if the
 		// block time is substantially lower than the network propagation time.
 		if g.lowBlockTime {
-			// TODO
+			winningExtraVotes := 0
+			_, bridgeParents := bridges(winner, current)
+			for _, parent := range bridgeParents {
+				// BFS the children of this bridge, using them to compute an
+				// 'extra vote' score for this bridge.
+				visited := make(map[nodeName]bool)
+				remainingChildren := parent.children
+				extraVotes := 0
+				for len(remainingChildren) != 0 {
+					child := remainingChildren[0]
+					remainingChildren = remainingChildren[1:]
+
+					// If this child is not visible in the winner's vote graph,
+					// ignore the child. We can detect whether the child is in
+					// the winner's vote graph by looking at any edge to a
+					// parent - if any of those edges are in the winner's vote
+					// graph, all of them will be.
+					if len(child.parents) == 0 {
+						// Genesis block, visible in the winner's vote graph,
+						// and visible in the current graph.
+						extraVotes--
+						continue
+					}
+					e := edge(child.name, child.parents[0].name)
+					if _, exists := winner.relativeVoteGraph[e]; !exists {
+						continue
+					}
+
+					// Score -1 if this child is visible in the graph of
+					// 'current', and +1 if this child is not visible in the
+					// graph of 'current'.
+					if _, exists := current.relativeVoteGraph[e]; exists {
+						extraVotes--
+					} else {
+						extraVotes++
+					}
+
+					// Add all children of this child to the BFS.
+					for _, grandChild := range child.children {
+						if !visited[grandChild.name] {
+							visited[grandChild.name] = true
+							remainingChildren = append(remainingChildren, grandChild)
+						}
+					}
+				}
+
+				// Compare the number of extra votes to the winning number of
+				// extra votes. If larger, add these extra votes.
+				if extraVotes > winningExtraVotes {
+					winningExtraVotes = extraVotes
+				}
+			}
+
+			for i := 0; i < winningExtraVotes; i++ {
+				tip.relativeVoteGraph[e]++
+				tip.edgeVotes = append(tip.edgeVotes, e)
+			}
 		}
+
+		// Iterate to the next node in the main chain.
+		current = winner
 	}
 
 	// Voting complete, graph weights updated.

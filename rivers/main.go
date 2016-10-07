@@ -8,14 +8,14 @@ import (
 // graphs in SageMath.
 func main() {
 	// Diamond Graph
-	gDiamond := NewGraph()
+	gDiamond := NewLowBlockTimeGraph()
 	d1 := gDiamond.CreateNode(gDiamond.GenesisNode())
 	d2 := gDiamond.CreateNode(gDiamond.GenesisNode())
 	_ = gDiamond.CreateNode(d1, d2)
 	fmt.Printf("\n# Diamond Graph\n%s", gDiamond.SageGen())
 
 	// Pentagon Graph
-	gPentagon := NewGraph()
+	gPentagon := NewLowBlockTimeGraph()
 	p1 := gPentagon.CreateNode(gPentagon.GenesisNode())
 	p2 := gPentagon.CreateNode(gPentagon.GenesisNode())
 	p3 := gPentagon.CreateNode(p1)
@@ -23,7 +23,7 @@ func main() {
 	fmt.Printf("\n# Pentagon Graph\n%s", gPentagon.SageGen())
 
 	// Double Diamond Graph
-	gDDiamond := NewGraph()
+	gDDiamond := NewLowBlockTimeGraph()
 	dd1 := gDDiamond.CreateNode(gDDiamond.GenesisNode())
 	dd2 := gDDiamond.CreateNode(gDDiamond.GenesisNode())
 	dd3 := gDDiamond.CreateNode(dd1, dd2)
@@ -32,7 +32,7 @@ func main() {
 	fmt.Printf("\n# Double Diamond Graph\n%s", gDDiamond.SageGen())
 
 	// Impossibility Proof Graph
-	ip := NewGraph()
+	ip := NewLowBlockTimeGraph()
 	ip1 := ip.CreateNode(ip.GenesisNode())
 	ip2 := ip.CreateNode(ip.GenesisNode())
 	ip3 := ip.CreateNode(ip1)
@@ -47,7 +47,7 @@ func main() {
 	fmt.Printf("\n# Impossibility Proof Graph\n%s", ip.SageGen())
 
 	// Abstain Graph
-	a := NewGraph()
+	a := NewLowBlockTimeGraph()
 	a1 := a.CreateNode(a.GenesisNode())
 	a2 := a.CreateNode(a1)
 	a3 := a.CreateNode(a2)
@@ -69,7 +69,7 @@ func main() {
 	fmt.Printf("\n# Abstain Graph\n%s", a.SageGen())
 
 	// Leech Graph
-	l := NewGraph()
+	l := NewLowBlockTimeGraph()
 	l1 := l.CreateNode(l.GenesisNode())
 	l2 := l.CreateNode(l1)
 	l3 := l.CreateNode(l2)
@@ -96,7 +96,7 @@ func main() {
 	// Low Latency Adversary Graph
 	//
 	// Adversary nodes have indices 2, 5, 8, 11, 14, 17, 20
-	ll := NewGraph()
+	ll := NewLowBlockTimeGraph()
 	ll1 := ll.CreateNode(ll.GenesisNode())
 	lla := ll.CreateNode(ll.GenesisNode())
 	ll2 := ll.CreateNode(lla, ll.GenesisNode())

@@ -65,6 +65,7 @@ func (gn *GraphNode) relativeOrdering() []*GraphNode {
 		for {
 			var importantEdges []edgeName
 			var correspondingChildren []*GraphNode
+			visited := make(map[nodeName]bool)
 			unvisited := base.parents
 			for len(unvisited) != 0 {
 				// Pop a node off of the unvisited stack.
@@ -83,7 +84,8 @@ func (gn *GraphNode) relativeOrdering() []*GraphNode {
 						e := edge(ancestor.name, parent.name)
 						importantEdges = append(importantEdges, e)
 						correspondingChildren = append(correspondingChildren, ancestor)
-					} else {
+					} else if !visited[parent.name] {
+						visited[parent.name] = true
 						unvisited = append(unvisited, parent)
 					}
 				}
