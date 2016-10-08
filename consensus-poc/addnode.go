@@ -179,7 +179,7 @@ func (g *Graph) CreateNode(parents ...*GraphNode) *GraphNode {
 				// 'extra vote' score for this bridge.
 				visited := make(map[nodeName]bool)
 				remainingChildren := parent.children
-				extraVotes := 1
+				extraVotes := 0
 				for len(remainingChildren) != 0 {
 					child := remainingChildren[0]
 					remainingChildren = remainingChildren[1:]
