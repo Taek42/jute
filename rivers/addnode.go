@@ -88,7 +88,7 @@ func nextMainNode(parent *GraphNode, tip *GraphNode) *GraphNode {
 	for _, child := range visibleChildren {
 		e := edge(child.name, parent.name)
 		votes := tip.relativeVoteGraph[e]
-		childHash := sha256.Sum256([]byte("salt" + tip.name + child.name))
+		childHash := sha256.Sum256([]byte(tip.salt + string(tip.name + child.name)))
 		if votes > winningVotes {
 			winningVotes = votes
 			winningHeight = child.relativeHeight
@@ -115,6 +115,8 @@ func (g *Graph) CreateNode(parents ...*GraphNode) *GraphNode {
 		parents:           parents,
 		relativeHeight:    1,
 		relativeVoteGraph: make(map[edgeName]int),
+
+		salt: g.salt,
 	}
 
 	// Define a recursive helper function to fetch the votes of the previous

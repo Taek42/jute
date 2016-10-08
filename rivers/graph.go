@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
 	"strconv"
 	"strings"
@@ -46,6 +47,11 @@ type GraphNode struct {
 	// Adding a child will never change the relative vote graph, or the voting
 	// decisions of the parent.
 	children []*GraphNode
+
+	// Each node knows the graph salt. The graph salt was added during testing,
+	// and not designed very well into the code. The salt is the same for all
+	// nodes.
+	salt string
 }
 
 // RelativeOrdering sorts the graph using the supplied node as the tip, then
@@ -70,6 +76,10 @@ type Graph struct {
 	// genesisNode is the oldest node in the tree.
 	genesisNode *GraphNode
 
+	// the salt used to make sure that rng decisions are different from
+	// run-to-run, especially useful during testing.
+	salt string
+
 	// lowBlockTime indicates whether the lowBlockTime rule is applied during
 	// the voting process.
 	lowBlockTime bool
@@ -83,6 +93,8 @@ func (g *Graph) GenesisNode() *GraphNode {
 // NewGraph initializes a graph with a genesis node that has no children and
 // returns the graph.
 func NewGraph() *Graph {
+	saltBase := make([]byte, 32)
+	rand.Read(saltBase)
 	return &Graph{
 		nameCounter: 0,
 		genesisNode: &GraphNode{
@@ -94,6 +106,7 @@ func NewGraph() *Graph {
 
 			children: make([]*GraphNode, 0),
 		},
+		salt: string(saltBase),
 	}
 }
 
