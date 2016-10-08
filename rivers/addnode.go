@@ -88,7 +88,7 @@ func nextMainNode(parent *GraphNode, tip *GraphNode) *GraphNode {
 	for _, child := range visibleChildren {
 		e := edge(child.name, parent.name)
 		votes := tip.relativeVoteGraph[e]
-		childHash := sha256.Sum256([]byte(tip.salt + string(tip.name + child.name)))
+		childHash := sha256.Sum256([]byte(tip.salt + string(tip.name+child.name)))
 		if votes > winningVotes {
 			winningVotes = votes
 			winningHeight = child.relativeHeight
@@ -189,12 +189,6 @@ func (g *Graph) CreateNode(parents ...*GraphNode) *GraphNode {
 					// the winner's vote graph by looking at any edge to a
 					// parent - if any of those edges are in the winner's vote
 					// graph, all of them will be.
-					if len(child.parents) == 0 {
-						// Genesis block, visible in the winner's vote graph,
-						// and visible in the current graph.
-						extraVotes--
-						continue
-					}
 					e := edge(child.name, child.parents[0].name)
 					if _, exists := winner.relativeVoteGraph[e]; !exists {
 						continue
