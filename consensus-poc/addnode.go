@@ -171,7 +171,7 @@ func (g *Graph) CreateNode(parents ...*GraphNode) *GraphNode {
 		// minorities. The newest edge in the main chain without the extra rule
 		// will always have just one vote. The extra rule is necessary if the
 		// block time is substantially lower than the network propagation time.
-		if g.lowBlockTime {
+		if g.lowBlockTime && winner == tip {
 			winningExtraVotes := 0
 			_, bridgeParents := bridges(winner, current)
 			for _, parent := range bridgeParents {
@@ -179,10 +179,15 @@ func (g *Graph) CreateNode(parents ...*GraphNode) *GraphNode {
 				// 'extra vote' score for this bridge.
 				visited := make(map[nodeName]bool)
 				remainingChildren := parent.children
-				extraVotes := 0
+				extraVotes := 1
 				for len(remainingChildren) != 0 {
 					child := remainingChildren[0]
 					remainingChildren = remainingChildren[1:]
+
+					// If this child is the tip, ignore this block.
+					if child.name == tip.name {
+						continue
+					}
 
 					// If this child is not visible in the winner's vote graph,
 					// ignore the child. We can detect whether the child is in

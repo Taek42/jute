@@ -1,0 +1,765 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/Taek42/jute/rivers/addnode.go (100.0%)</option>
+				
+				<option value="file1">github.com/Taek42/jute/rivers/graph.go (41.2%)</option>
+				
+				<option value="file2">github.com/Taek42/jute/rivers/main.go (0.0%)</option>
+				
+				<option value="file3">github.com/Taek42/jute/rivers/sort.go (95.3%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "bytes"
+        "crypto/sha256"
+        "strconv"
+)
+
+// bridges finds all edges that lead from an ancestor of mainChild to an
+// ancestor of tip that is not an ancestor of mainChild.
+func bridges(tip, mainChild *GraphNode) ([]edgeName, []*GraphNode) <span class="cov7" title="62">{
+        // Perform a BFS on all parents/ancestors of the tip node.
+        var bridgeEdges []edgeName
+        var correspondingParents []*GraphNode
+        visited := make(map[nodeName]bool)
+        unvisited := tip.parents
+        for len(unvisited) != 0 </span><span class="cov8" title="93">{
+                // Grab the next ancestor.
+                ancestor := unvisited[0]
+                unvisited = unvisited[1:]
+
+                // If the ancestor is visible from the main child, ignore it, as we're
+                // looking for nodes that aren't visible from the main child.
+                if len(ancestor.parents) == 0 </span><span class="cov6" title="26">{
+                        // Genesis block - definitely visible from the main child.
+                        continue</span>
+                }
+                <span class="cov8" title="67">e := edge(ancestor.name, ancestor.parents[0].name)
+                if _, exists := mainChild.relativeVoteGraph[e]; exists </span><span class="cov7" title="36">{
+                        // If any edge from this node to a parent is in the main child vote
+                        // graph, every edge from this node to a parent will be in the main
+                        // child vote graph, only need to check one.
+                        continue</span>
+                }
+
+                // We know that the node is not visible from the main chain. Find all
+                // edges that point from the ancestor to a node visible from the main
+                // chain. There may not be any.
+                <span class="cov6" title="31">for _, parent := range ancestor.parents </span><span class="cov6" title="34">{
+                        if len(parent.parents) == 0 </span><span class="cov5" title="17">{
+                                // Genesis block - definitely visible from the main child.
+                                bridgeEdges = append(bridgeEdges, e)
+                                correspondingParents = append(correspondingParents, parent)
+                                continue</span>
+                        }
+                        <span class="cov5" title="17">e := edge(parent.name, parent.parents[0].name)
+                        if _, exists := mainChild.relativeVoteGraph[e]; exists </span><span class="cov4" title="10">{
+                                // Found a bridge edge, add it.
+                                bridgeEdges = append(bridgeEdges, e)
+                                correspondingParents = append(correspondingParents, parent)
+                        }</span><span class="cov4" title="7"> else if !visited[parent.name] </span><span class="cov4" title="7">{
+                                visited[parent.name] = true
+                                unvisited = append(unvisited, parent)
+                        }</span>
+                }
+        }
+
+        <span class="cov7" title="62">return bridgeEdges, correspondingParents</span>
+}
+
+// nextMainNode uses the vote graph and hash of the tip block to select between
+// the children of the provided parent. The selected child is the next block in
+// the main chain.
+func nextMainNode(parent *GraphNode, tip *GraphNode) *GraphNode <span class="cov8" title="111">{
+        // Because of other nodes, the parent may have children which are not in
+        // the edge graph of the tip. Separate the set of children recognized by
+        // the tip node from the set of all children to the parent.
+        var visibleChildren []*GraphNode
+        for _, child := range parent.children </span><span class="cov10" title="212">{
+                e := edge(child.name, parent.name)
+                if _, exists := tip.relativeVoteGraph[e]; exists </span><span class="cov9" title="151">{
+                        visibleChildren = append(visibleChildren, child)
+                }</span>
+        }
+
+        // The child with the most votes on its edge to the parent wins. If
+        // multiple children have the winning number of edge votes, select the
+        // child with the greatest relative height. If multiple children have both
+        // the winning number of edge votes and the winning relative height, select
+        // between them randomly using the hash of the tip block as a seed.
+        //
+        // As this is a simulation, the names of the blocks are used to seed the
+        // rng in lieu of their hashes.
+        <span class="cov8" title="111">winningVotes := 0
+        winningHeight := 0
+        var winningHash [32]byte
+        var winner *GraphNode
+        for _, child := range visibleChildren </span><span class="cov9" title="151">{
+                e := edge(child.name, parent.name)
+                votes := tip.relativeVoteGraph[e]
+                childHash := sha256.Sum256([]byte(tip.salt + string(tip.name+child.name)))
+                if votes &gt; winningVotes </span><span class="cov8" title="70">{
+                        winningVotes = votes
+                        winningHeight = child.relativeHeight
+                        winningHash = childHash
+                        winner = child
+                }</span><span class="cov8" title="81"> else if votes == winningVotes &amp;&amp; child.relativeHeight &gt; winningHeight </span><span class="cov7" title="52">{
+                        winningHeight = child.relativeHeight
+                        winningHash = childHash
+                        winner = child
+                }</span><span class="cov6" title="29"> else if votes == winningVotes &amp;&amp; child.relativeHeight == winningHeight &amp;&amp; bytes.Compare(winningHash[:], childHash[:]) &lt; 0 </span><span class="cov2" title="3">{
+                        winningHash = childHash
+                        winner = child
+                }</span>
+        }
+        <span class="cov8" title="111">return winner</span>
+}
+
+// CreateNode will take a list of parent nodes, create a graph node from that
+// list, and then add that node to the graph, returning the node.
+func (g *Graph) CreateNode(parents ...*GraphNode) *GraphNode <span class="cov7" title="39">{
+        g.nameCounter++
+        tip := &amp;GraphNode{
+                name:              nodeName(strconv.Itoa(g.nameCounter)),
+                parents:           parents,
+                relativeHeight:    1,
+                relativeVoteGraph: make(map[edgeName]int),
+
+                salt: g.salt,
+        }
+
+        // Define a recursive helper function to fetch the votes of the previous
+        // nodes and create a voteGraph. The optimized version of this code is O(n)
+        // in the number of parents instead of O(n) in the total number of edges in
+        // the graph.
+        visited := make(map[nodeName]bool)
+        var addEdges func(parents []*GraphNode, childName nodeName)
+        addEdges = func(parents []*GraphNode, childName nodeName) </span><span class="cov9" title="159">{
+                for _, parent := range parents </span><span class="cov9" title="151">{
+                        // Skip this parent if the parent has already voted.
+                        if visited[parent.name] </span><span class="cov6" title="31">{
+                                continue</span>
+                        }
+                        <span class="cov9" title="120">visited[parent.name] = true
+
+                        // Add all of the votes from the parent to the tip.relativeVoteGraph.
+                        for _, vote := range parent.edgeVotes </span><span class="cov9" title="162">{
+                                tip.relativeVoteGraph[vote]++
+                        }</span>
+
+                        // Add the parent-child edge with zero votes if it has not yet
+                        // received any votes.
+                        <span class="cov9" title="120">e := edge(childName, parent.name)
+                        tip.relativeVoteGraph[e] += 0
+                        addEdges(parent.parents, parent.name)</span>
+                }
+        }
+        // Perform a DFS on the parents and count the total number of votes for
+        // each edge in the graph visible to the new node.
+        <span class="cov7" title="39">addEdges(parents, tip.name)
+
+        // Update the relative height of the node to reflect its actual relative
+        // height.
+        tip.relativeHeight += len(visited)
+
+        // Add the child to all of its parents.
+        for _, parent := range tip.parents </span><span class="cov7" title="56">{
+                parent.children = append(parent.children, tip)
+        }</span>
+
+        // Execute the jute voting algorithm, iteratively detecting the main chain
+        // and then voting for it.
+        <span class="cov7" title="39">current := g.genesisNode
+        for len(current.children) != 0 </span><span class="cov8" title="85">{
+                winner := nextMainNode(current, tip)
+                e := edge(winner.name, current.name)
+                tip.relativeVoteGraph[e]++
+                tip.edgeVotes = append(tip.edgeVotes, e)
+
+                // An additional rule allows us to protect against low-latency
+                // minorities. The newest edge in the main chain without the extra rule
+                // will always have just one vote. The extra rule is necessary if the
+                // block time is substantially lower than the network propagation time.
+                if g.lowBlockTime </span><span class="cov7" title="59">{
+                        winningExtraVotes := 0
+                        _, bridgeParents := bridges(winner, current)
+                        for _, parent := range bridgeParents </span><span class="cov6" title="21">{
+                                // Ignore this parent if it is the winning parent.
+
+                                // BFS the children of this bridge, using them to compute an
+                                // 'extra vote' score for this bridge.
+                                visited := make(map[nodeName]bool)
+                                remainingChildren := parent.children
+                                extraVotes := 0
+                                for len(remainingChildren) != 0 </span><span class="cov9" title="122">{
+                                        child := remainingChildren[0]
+                                        remainingChildren = remainingChildren[1:]
+
+                                        // If this child is not visible in the winner's vote graph,
+                                        // ignore the child. We can detect whether the child is in
+                                        // the winner's vote graph by looking at any edge to a
+                                        // parent - if any of those edges are in the winner's vote
+                                        // graph, all of them will be.
+                                        e := edge(child.name, child.parents[0].name)
+                                        if _, exists := winner.relativeVoteGraph[e]; !exists </span><span class="cov6" title="23">{
+                                                continue</span>
+                                        }
+
+                                        // Score -1 if this child is visible in the graph of
+                                        // 'current', and +1 if this child is not visible in the
+                                        // graph of 'current'.
+                                        <span class="cov8" title="99">if _, exists := current.relativeVoteGraph[e]; exists </span><span class="cov6" title="29">{
+                                                // println("--")
+                                                extraVotes--
+                                        }</span><span class="cov8" title="70"> else {
+                                                // println("++")
+                                                extraVotes++
+                                        }</span>
+
+                                        // Add all children of this child to the BFS.
+                                        <span class="cov8" title="99">for _, grandChild := range child.children </span><span class="cov8" title="101">{
+                                                if !visited[grandChild.name] </span><span class="cov7" title="56">{
+                                                        visited[grandChild.name] = true
+                                                        remainingChildren = append(remainingChildren, grandChild)
+                                                }</span>
+                                        }
+                                }
+
+                                // Compare the number of extra votes to the winning number of
+                                // extra votes. If larger, add these extra votes.
+                                <span class="cov6" title="21">if extraVotes &gt; winningExtraVotes </span><span class="cov5" title="15">{
+                                        winningExtraVotes = extraVotes
+                                }</span>
+                        }
+
+                        <span class="cov7" title="59">for i := 0; i &lt; winningExtraVotes; i++ </span><span class="cov6" title="23">{
+                                tip.relativeVoteGraph[e]++
+                                tip.edgeVotes = append(tip.edgeVotes, e)
+                        }</span>
+                }
+
+                // Iterate to the next node in the main chain.
+                <span class="cov8" title="85">current = winner</span>
+        }
+
+        // Voting complete, graph weights updated.
+        <span class="cov7" title="39">return tip</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package main
+
+import (
+        "crypto/rand"
+        "fmt"
+        "strconv"
+        "strings"
+)
+
+// nodeName is the string version of a node's numerical counter.
+type nodeName string
+
+// edgeName is the name of an edge connecting two nodes. The name takes the
+// form "childName" + "-" + "parentName".
+type edgeName string
+
+// edge returns the name of the edge that is created when the child commits to
+// the parent.
+func edge(child, parent nodeName) edgeName <span class="cov10" title="802">{
+        return edgeName(child + "-" + parent)
+}</span>
+
+// GraphNode defines a node in a graph. The algorithm needs to traverse the
+// graph both forward and backwards, so parents must point to all children, and
+// children must point to all parents.
+//
+// Each node has the full list of votes for all edges as the were when this
+// block was the tip block. The space complexity for this is O(n^2) in the
+// total number of nodes, however using a global table and some clever code we
+// could optimize the space complexity to O(n).
+type GraphNode struct {
+        // These values are inherent to the node and will not change.
+        //
+        // The name must be unique.
+        //
+        // The edgeVotes indicates the edges that this node casts a vote for.
+        //
+        // The relative height is the total number of blocks that can be
+        // reached by performing a depth-first-search on the parents.
+        name              nodeName
+        edgeVotes         []edgeName
+        parents           []*GraphNode
+        relativeHeight    int
+        relativeVoteGraph map[edgeName]int
+
+        // The set of children can grow as more nodes are added to the graph.
+        // Adding a child will never change the relative vote graph, or the voting
+        // decisions of the parent.
+        children []*GraphNode
+
+        // Each node knows the graph salt. The graph salt was added during testing,
+        // and not designed very well into the code. The salt is the same for all
+        // nodes.
+        salt string
+}
+
+// RelativeOrdering sorts the graph using the supplied node as the tip, then
+// prints the ordering that results.
+func (gn *GraphNode) RelativeOrdering() string <span class="cov2" title="4">{
+        relativeOrdering := gn.relativeOrdering()
+        s := fmt.Sprint(relativeOrdering[0].name)
+        for i := 1; i &lt; len(relativeOrdering); i++ </span><span class="cov5" title="26">{
+                s = fmt.Sprint(s, "-")
+                s = fmt.Sprint(s, relativeOrdering[i].name)
+        }</span>
+        <span class="cov2" title="4">return s</span>
+}
+
+// Graph contains the genesis block, and helper functions for adding nodes to
+// the graph. When a node is added, its vote will be cast and a relative
+// ordering for that node will be determined.
+type Graph struct {
+        // nameCounter enables the graphViewer to assign unique names to each node.
+        nameCounter int
+
+        // genesisNode is the oldest node in the tree.
+        genesisNode *GraphNode
+
+        // the salt used to make sure that rng decisions are different from
+        // run-to-run, especially useful during testing.
+        salt string
+
+        // lowBlockTime indicates whether the lowBlockTime rule is applied during
+        // the voting process.
+        lowBlockTime bool
+}
+
+// GenesisNode returns the genesis node of the graph.
+func (g *Graph) GenesisNode() *GraphNode <span class="cov5" title="22">{
+        return g.genesisNode
+}</span>
+
+// NewGraph initializes a graph with a genesis node that has no children and
+// returns the graph.
+func NewGraph() *Graph <span class="cov3" title="6">{
+        saltBase := make([]byte, 32)
+        rand.Read(saltBase)
+        return &amp;Graph{
+                nameCounter: 0,
+                genesisNode: &amp;GraphNode{
+                        name:              "0",
+                        edgeVotes:         make([]edgeName, 0),
+                        parents:           make([]*GraphNode, 0),
+                        relativeHeight:    1,
+                        relativeVoteGraph: make(map[edgeName]int),
+
+                        children: make([]*GraphNode, 0),
+                },
+                salt: string(saltBase),
+        }
+}</span>
+
+// NewLowBlockTimeGraph initalizes and returns a graph that has an extra rule
+// for protecting high latency miners when the block time is significantly
+// lower than the network propagation time.
+func NewLowBlockTimeGraph() *Graph <span class="cov2" title="4">{
+        g := NewGraph()
+        g.lowBlockTime = true
+        return g
+}</span>
+
+// SageGen returns a string that can be fed into Sage to create a visualization
+// of the longest chain and the votes for each edge in that chain.
+func (g *Graph) SageGen() string <span class="cov0" title="0">{
+        // Find the node with the highest relative height.
+        winningChild := g.genesisNode
+        winningHeight := 1
+        looseEnds := g.genesisNode.children
+        for len(looseEnds) != 0 </span><span class="cov0" title="0">{
+                le := looseEnds[0]
+                looseEnds = looseEnds[1:]
+                if le.relativeHeight &gt; winningHeight </span><span class="cov0" title="0">{
+                        winningHeight = le.relativeHeight
+                        winningChild = le
+                }</span>
+                <span class="cov0" title="0">looseEnds = append(looseEnds, le.children...)</span>
+        }
+
+        // Now that we have the winning child, print out the code of the graph
+        // of the winning child.
+        <span class="cov0" title="0">s := fmt.Sprintln("G = DiGraph()")
+        for edge, weight := range winningChild.relativeVoteGraph </span><span class="cov0" title="0">{
+                // Parse the edge name into its components.
+                nodes := strings.Split(string(edge), "-")
+                s = fmt.Sprint(s, "G.add_edge("+nodes[0]+", "+nodes[1]+", "+strconv.Itoa(int(weight))+")\n")
+        }</span>
+        <span class="cov0" title="0">relativeOrdering := winningChild.RelativeOrdering()
+        s = fmt.Sprint(s, "H = G.plot(edge_labels=True, layout='acyclic', edge_color='grey')\n")
+        s = fmt.Sprint(s, "H.show(title=\""+relativeOrdering+"\", figsize=(5,16))\n")
+        filename := relativeOrdering + ".png"
+        s = fmt.Sprintf("%sH.save(filename=\"/home/user/plots/%s\", title=\""+relativeOrdering+"\", figsize=(5,16))\n", s, filename)
+        return s</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package main
+
+import (
+        "fmt"
+)
+
+// Build some graphs, and then print some code that can be used to generate the
+// graphs in SageMath.
+func main() <span class="cov0" title="0">{
+        // Diamond Graph
+        gDiamond := NewLowBlockTimeGraph()
+        d1 := gDiamond.CreateNode(gDiamond.GenesisNode())
+        d2 := gDiamond.CreateNode(gDiamond.GenesisNode())
+        _ = gDiamond.CreateNode(d1, d2)
+        fmt.Printf("\n# Diamond Graph\n%s", gDiamond.SageGen())
+
+        /*
+                // Pentagon Graph
+                gPentagon := NewLowBlockTimeGraph()
+                p1 := gPentagon.CreateNode(gPentagon.GenesisNode())
+                p2 := gPentagon.CreateNode(gPentagon.GenesisNode())
+                p3 := gPentagon.CreateNode(p1)
+                _ = gPentagon.CreateNode(p2, p3)
+                fmt.Printf("\n# Pentagon Graph\n%s", gPentagon.SageGen())
+
+                // Double Diamond Graph
+                gDDiamond := NewLowBlockTimeGraph()
+                dd1 := gDDiamond.CreateNode(gDDiamond.GenesisNode())
+                dd2 := gDDiamond.CreateNode(gDDiamond.GenesisNode())
+                dd3 := gDDiamond.CreateNode(dd1, dd2)
+                dd4 := gDDiamond.CreateNode(dd2)
+                _ = gDDiamond.CreateNode(dd3, dd4)
+                fmt.Printf("\n# Double Diamond Graph\n%s", gDDiamond.SageGen())
+
+                // Impossibility Proof Graph
+                ip := NewLowBlockTimeGraph()
+                ip1 := ip.CreateNode(ip.GenesisNode())
+                ip2 := ip.CreateNode(ip.GenesisNode())
+                ip3 := ip.CreateNode(ip1)
+                ip4 := ip.CreateNode(ip2)
+                ip5 := ip.CreateNode(ip3)
+                ip6 := ip.CreateNode(ip4, ip5)
+                ip7 := ip.CreateNode(ip4)
+                ip8 := ip.CreateNode(ip7)
+                ip9 := ip.CreateNode(ip8)
+                ip10 := ip.CreateNode(ip9)
+                _ = ip.CreateNode(ip10, ip6)
+                fmt.Printf("\n# Impossibility Proof Graph\n%s", ip.SageGen())
+
+                // Abstain Graph
+                a := NewLowBlockTimeGraph()
+                a1 := a.CreateNode(a.GenesisNode())
+                a2 := a.CreateNode(a1)
+                a3 := a.CreateNode(a2)
+                a4 := a.CreateNode(a3)
+                a5 := a.CreateNode(a4)
+                a6 := a.CreateNode(a.GenesisNode())
+                a7 := a.CreateNode(a6)
+                a8 := a.CreateNode(a7)
+                a9 := a.CreateNode(a8)
+                a10 := a.CreateNode(a9)
+                a11 := a.CreateNode(a10)
+                a12 := a.CreateNode(a11)
+                a13 := a.CreateNode(a12)
+                a14 := a.CreateNode(a13)
+                a15 := a.CreateNode(a14)
+                a16 := a.CreateNode(a15)
+                a17 := a.CreateNode(a16)
+                _ = a.CreateNode(a17, a5)
+                fmt.Printf("\n# Abstain Graph\n%s", a.SageGen())
+
+                // Leech Graph
+                l := NewLowBlockTimeGraph()
+                l1 := l.CreateNode(l.GenesisNode())
+                l2 := l.CreateNode(l1)
+                l3 := l.CreateNode(l2)
+                l4 := l.CreateNode(l3)
+                l5 := l.CreateNode(l4)
+                l6 := l.CreateNode(l5)
+                l7 := l.CreateNode(l6)
+                l8 := l.CreateNode(l7)
+                l9 := l.CreateNode(l8)
+                la := l.CreateNode(l9)
+                lb := l.CreateNode(la)
+                lc := l.CreateNode(lb)
+                ld := l.CreateNode(l.GenesisNode())
+                le := l.CreateNode(ld, l2)
+                lf := l.CreateNode(le, l3)
+                lg := l.CreateNode(lf, l5)
+                lh := l.CreateNode(lg, l7)
+                li := l.CreateNode(lh, l8)
+                lj := l.CreateNode(li, l9)
+                lk := l.CreateNode(lj, lb)
+                _ = l.CreateNode(lk, lc)
+                fmt.Printf("\n# Leech Graph\n%s", l.SageGen())
+
+                // Low Latency Adversary Graph
+                //
+                // Adversary nodes have indices 2, 5, 8, 11, 14, 17, 20
+                ll := NewLowBlockTimeGraph()
+                ll1 := ll.CreateNode(ll.GenesisNode())
+                lla := ll.CreateNode(ll.GenesisNode())
+                ll2 := ll.CreateNode(lla, ll.GenesisNode())
+                ll3 := ll.CreateNode(lla, ll.GenesisNode())
+                llb := ll.CreateNode(lla)
+                ll4 := ll.CreateNode(llb, ll.GenesisNode())
+                ll5 := ll.CreateNode(llb, ll1)
+                llc := ll.CreateNode(llb)
+                ll6 := ll.CreateNode(llc, ll2, ll1)
+                ll7 := ll.CreateNode(llc, ll3, ll2, ll1)
+                lld := ll.CreateNode(llc)
+                ll8 := ll.CreateNode(lld, ll4, ll3, ll2, ll1)
+                ll9 := ll.CreateNode(lld, ll5, ll4, ll3, ll2)
+                lle := ll.CreateNode(lld)
+                ll10 := ll.CreateNode(lle, ll6, ll5, ll4, ll3)
+                ll11 := ll.CreateNode(lle, ll7, ll6, ll5, ll4)
+                llf := ll.CreateNode(lle)
+                ll12 := ll.CreateNode(llf, ll8, ll7, ll6, ll5)
+                ll13 := ll.CreateNode(llf, ll9, ll8, ll7, ll6)
+                llg := ll.CreateNode(llf)
+                _ = ll.CreateNode(llg, ll13, ll12, ll11, ll10)
+                fmt.Printf("\n# Low Latency Adversary Graph\n%s", ll.SageGen())
+        */
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package main
+
+import (
+        "bytes"
+        "crypto/sha256"
+)
+
+// nextUnorderedAncestor selects the unordered ancestor which should be ordered
+// next from a list of unordered ancestors.
+func nextUnorderedAncestor(edges []edgeName, coorespondingChildren []*GraphNode, tip *GraphNode) *GraphNode <span class="cov5" title="12">{
+        // The child with the most votes on its edge to the parent wins. If
+        // multiple children have the winning number of edge votes, select the
+        // child with the greatest relative height. If multiple children have both
+        // the winning number of edge votes and the winning relative height, select
+        // between them randomly using the hash of the tip block as a seed.
+        //
+        // As this is a simulation, the names of the blocks are used to seed the
+        // rng in lieu of their hashes.
+        winningVotes := 0
+        winningHeight := 0
+        var winningHash [32]byte
+        var winner *GraphNode
+        for i, child := range coorespondingChildren </span><span class="cov7" title="28">{
+                e := edges[i]
+                votes := tip.relativeVoteGraph[e]
+                childHash := sha256.Sum256([]byte("salt" + tip.name + child.name))
+                if votes &gt; winningVotes </span><span class="cov5" title="12">{
+                        winningVotes = votes
+                        winningHeight = child.relativeHeight
+                        winningHash = childHash
+                        winner = child
+                }</span><span class="cov6" title="16"> else if votes == winningVotes &amp;&amp; child.relativeHeight &gt; winningHeight </span><span class="cov0" title="0">{
+                        winningHeight = child.relativeHeight
+                        winningHash = childHash
+                        winner = child
+                }</span><span class="cov6" title="16"> else if votes == winningVotes &amp;&amp; child.relativeHeight == winningHeight &amp;&amp; bytes.Compare(winningHash[:], childHash[:]) &lt; 0 </span><span class="cov4" title="6">{
+                        winningHash = childHash
+                        winner = child
+                }</span>
+        }
+        <span class="cov5" title="12">return winner</span>
+}
+
+// relativeOrdering returns the sorted graph from the perspective of the
+// calling node.
+func (gn *GraphNode) relativeOrdering() []*GraphNode <span class="cov3" title="4">{
+        var relativeOrdering []*GraphNode
+        ordered := make(map[nodeName]bool)
+        queued := make(map[nodeName]bool)
+
+        // Find the genesis block.
+        current := gn
+        for len(current.parents) != 0 </span><span class="cov5" title="10">{
+                current = current.parents[0]
+        }</span>
+        <span class="cov3" title="4">genesis := current
+
+        var updateOrdering func(base *GraphNode, tip *GraphNode)
+        updateOrdering = func(base *GraphNode, tip *GraphNode) </span><span class="cov7" title="30">{
+                queued[base.name] = true
+                // Before continuing, check that all ancestors of the base block have
+                // been added to the ordering. If there are one or more unordered
+                // ancestors, select one by edge votes and recurse using the base as
+                // the new tip, and the unordered ancestor as the new base.
+                for </span><span class="cov8" title="42">{
+                        var importantEdges []edgeName
+                        var correspondingChildren []*GraphNode
+                        visited := make(map[nodeName]bool)
+                        unvisited := base.parents
+                        for len(unvisited) != 0 </span><span class="cov10" title="91">{
+                                // Pop a node off of the unvisited stack.
+                                ancestor := unvisited[0]
+                                unvisited = unvisited[1:]
+                                if ordered[ancestor.name] </span><span class="cov9" title="62">{
+                                        continue</span>
+                                }
+
+                                // Find all edges that point from the ancestor to an ordered
+                                // node ('importantEdges'). There may not be any. If there are
+                                // not any, then an unordered ancestor of the unordered
+                                // ancestor will have an edge that points to an ordered node.
+                                <span class="cov7" title="29">for _, parent := range ancestor.parents </span><span class="cov7" title="33">{
+                                        if ordered[parent.name] </span><span class="cov7" title="28">{
+                                                e := edge(ancestor.name, parent.name)
+                                                importantEdges = append(importantEdges, e)
+                                                correspondingChildren = append(correspondingChildren, ancestor)
+                                        }</span><span class="cov4" title="5"> else if !visited[parent.name] </span><span class="cov4" title="5">{
+                                                visited[parent.name] = true
+                                                unvisited = append(unvisited, parent)
+                                        }</span>
+                                }
+                        }
+
+                        // If there are no important edges, all ancestors of the base block
+                        // have been orderd, exit the ancestor-ordering loop.
+                        <span class="cov8" title="42">if len(importantEdges) == 0 </span><span class="cov7" title="30">{
+                                break</span>
+                        }
+
+                        // Grab a winning child from the list of important edges, and
+                        // recurse using the winner as the new base, and the current base
+                        // as the new tip.
+                        <span class="cov5" title="12">winner := nextUnorderedAncestor(importantEdges, correspondingChildren, tip)
+                        updateOrdering(winner, base)</span>
+                }
+
+                // All ancestors of the base are now ordered. Add the base to the
+                // ordering.
+                <span class="cov7" title="30">if base == tip </span><span class="cov3" title="4">{
+                        return
+                }</span>
+                <span class="cov7" title="26">relativeOrdering = append(relativeOrdering, base)
+                ordered[base.name] = true
+
+                // Pick a child to follow up the relative main chain.
+                next := nextMainNode(base, tip)
+                if queued[next.name] </span><span class="cov5" title="12">{
+                        return
+                }</span>
+                // Iterate to the top, using the next main chain block as the base, and
+                // using the same tip.
+                <span class="cov6" title="14">updateOrdering(next, tip)</span>
+        }
+        <span class="cov3" title="4">updateOrdering(genesis, gn)
+        relativeOrdering = append(relativeOrdering, gn)
+        return relativeOrdering</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

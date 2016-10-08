@@ -21,7 +21,7 @@ func TestDiamond(t *testing.T) {
 		t.Error("d1 has wrong number of parents")
 	}
 	if len(d2.parents) != 1 {
-		t.Error("d1 has wrong number of parents")
+		t.Error("d2 has wrong number of parents")
 	}
 	if len(m.parents) != 2 {
 		t.Error("m has wrong number of parents")
@@ -41,12 +41,43 @@ func TestDiamond(t *testing.T) {
 		t.Error("m has children")
 	}
 
+	// Check the edge strengths.
+	e1 := edge(d1.name, g.GenesisNode().name)
+	e2 := edge(d2.name, g.GenesisNode().name)
+	e3 := edge(m.name, d1.name)
+	e4 := edge(m.name, d2.name)
+	if m.relativeVoteGraph[e1] == 2 {
+		// RNG favored e1
+		if m.relativeVoteGraph[e2] != 1 {
+			t.Error("wrong number of votes for e2", m.relativeVoteGraph[e2])
+		}
+		if m.relativeVoteGraph[e3] != 2 {
+			t.Error("wrong number of votes for e3", m.relativeVoteGraph[e3])
+		}
+		if m.relativeVoteGraph[e4] != 0 {
+			t.Error("wrong number of votes for e4", m.relativeVoteGraph[e4])
+		}
+	} else {
+		// RNG favored e2
+		if m.relativeVoteGraph[e2] != 2 {
+			t.Error("base votes seem incoorect", m.relativeVoteGraph[e1], m.relativeVoteGraph[e2])
+		}
+		if m.relativeVoteGraph[e1] != 1 {
+			t.Error("wrong number of votes for e2", m.relativeVoteGraph[e2])
+		}
+		if m.relativeVoteGraph[e4] != 2 {
+			t.Error("wrong number of votes for e4", m.relativeVoteGraph[e4])
+		}
+		if m.relativeVoteGraph[e3] != 0 {
+			t.Error("wrong number of votes for e3", m.relativeVoteGraph[e3])
+		}
+	}
+
 	if m.RelativeOrdering() != "0-1-2-3" && m.RelativeOrdering() != "0-2-1-3" {
 		t.Error("m has incorrect relative ordering", m.RelativeOrdering())
 	}
 
-	// Repeat the tests, but with a non-LBT graph. The two should have
-	// identical results.
+	// Repeat the tests, but with a non-LBT graph.
 	g = NewGraph()
 	d1 = g.CreateNode(g.GenesisNode())
 	d2 = g.CreateNode(g.GenesisNode())
@@ -60,7 +91,7 @@ func TestDiamond(t *testing.T) {
 		t.Error("d1 has wrong number of parents")
 	}
 	if len(d2.parents) != 1 {
-		t.Error("d1 has wrong number of parents")
+		t.Error("d2 has wrong number of parents")
 	}
 	if len(m.parents) != 2 {
 		t.Error("m has wrong number of parents")
@@ -78,6 +109,38 @@ func TestDiamond(t *testing.T) {
 	}
 	if len(m.children) != 0 {
 		t.Error("m has children")
+	}
+
+	// Check the edge strengths.
+	e1 = edge(d1.name, g.GenesisNode().name)
+	e2 = edge(d2.name, g.GenesisNode().name)
+	e3 = edge(m.name, d1.name)
+	e4 = edge(m.name, d2.name)
+	if m.relativeVoteGraph[e1] == 2 {
+		// RNG favored e1
+		if m.relativeVoteGraph[e2] != 1 {
+			t.Error("wrong number of votes for e2", m.relativeVoteGraph[e2])
+		}
+		if m.relativeVoteGraph[e3] != 1 {
+			t.Error("wrong number of votes for e3", m.relativeVoteGraph[e3])
+		}
+		if m.relativeVoteGraph[e4] != 0 {
+			t.Error("wrong number of votes for e4", m.relativeVoteGraph[e4])
+		}
+	} else {
+		// RNG favored e2
+		if m.relativeVoteGraph[e2] != 2 {
+			t.Error("base votes seem incoorect", m.relativeVoteGraph[e1], m.relativeVoteGraph[e2])
+		}
+		if m.relativeVoteGraph[e1] != 1 {
+			t.Error("wrong number of votes for e2", m.relativeVoteGraph[e2])
+		}
+		if m.relativeVoteGraph[e4] != 1 {
+			t.Error("wrong number of votes for e4", m.relativeVoteGraph[e4])
+		}
+		if m.relativeVoteGraph[e3] != 0 {
+			t.Error("wrong number of votes for e3", m.relativeVoteGraph[e3])
+		}
 	}
 
 	if m.RelativeOrdering() != "0-1-2-3" && m.RelativeOrdering() != "0-2-1-3" {
@@ -144,9 +207,9 @@ func TestLBTBranching(t *testing.T) {
 	// We check a prefix and a suffix. Do to rng selection, the middle 4 nodes
 	// are allowed to be in any order.
 	if lm2RO[:6] != "0-5-6-" {
-		t.Error("wrong prefix for lm2 ordering", lm2RO[:6])
+		t.Error("wrong prefix for lm2 ordering", lm2RO[:6], lm2RO)
 	}
 	if lm2RO[14:] != "7-8-9-10" {
-		t.Error("wrong suffix for lm2 ordering", lm2RO[14:])
+		t.Error("wrong suffix for lm2 ordering", lm2RO[14:], lm2RO)
 	}
 }

@@ -1,4 +1,3 @@
- 
 Jute: More Scalable, More Decentralized Proof-of-Work Consensus
 ===============================================================
 
