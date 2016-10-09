@@ -1,7 +1,7 @@
 Jute: More Scalable, More Decentralized Proof-of-Work Consensus
 ===============================================================
 
-**Used in conjunction with [ppt]**
+**Used in conjunction with [this presentation](Scaling Bitcoin Milan Presentation.pdf)**
 
 Jute is a proof-of-work consensus algorithm drawing heavily from the Bitcoin consensus algorithm. Jute assumes a network of economically rational miners where no single party or conglomerate controls more than 51% of the hashate. The jute algorithm solves the problem of selfish mining, eliminates orphans, and paves a path leading toward shorter block times and higher network throughput. This is achieved by replacing the linked-list, longest chain consensus algorithm with an algorithm that allows blocks to have many parents, creating a DAG. A sorting algorithm is applied to the DAG to get an exact ordering of blocks that is safe from reordering/reorganization except in the face of a 51% attacker.
 
