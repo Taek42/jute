@@ -68,9 +68,7 @@ It should be noted that a single confirmation in Jute is much weaker than a sing
 
 ## Security Requirements of Blockchains
 
-The key innovation of a blockchain is immutability. And Bitcoin assumes immutability on its transactions given enough confirmations and absent an attacker with at least 51% hashrate. Aside from assuming that nobody has reached 51% hashrate, Bitcoin assumes that all miners are acting selfishly and are pursuing profits, willing to engage in unfriendly or adversarial behavior if it is profitable to do so.
-
-And what's mor
+[See slides - work in progress]
 
 ## Jute Introduction
 
@@ -78,9 +76,9 @@ Jute allows blocks to have multiple parents, effectively converting the blockcha
 
 Jute is an algorithm for taking DAGs and arriving at a total ordering based on the amount of work confirming each potential ordering. Once the majority of the hashrate has agreed upon a particular ordering, that ordering alone receives votes, which means that a minority hashrate is unable to cause reordering or reorganization without being exceptionally lucky.
 
-Jute ignores the validity of transactions in the immediate term, allowing any block with valid proof-of-work to be accepted into the chain. Ignoring transaction validity is important for eliminating orphans, because multiple miners finding blocks at the same time should not be heavily penalized if there is some transaction overlap in those blocks - it will be unavoidable for high latency miners. This does not need to prevent SPV however. Instead of making SPV commitments to the transcations in the blocks they are mining (where they are not certain that the transactions will actually be valid due to potential double spends), miners can commit to block ranges in recent history with a high enough number of confirmations that there is little to no risk of the commitment being made invalid by a double spend.
+Jute ignores the validity of transactions in the immediate term, allowing any block with valid proof-of-work to be accepted into the chain. Ignoring transaction validity is important for eliminating orphans, because multiple miners finding blocks at the same time should not be heavily penalized if there is some transaction overlap in those blocks - it will be unavoidable for high latency miners. This does not need to prevent SPV however. Instead of making SPV commitments to the transcations in the blocks they are mining (where they are not certain that the transactions will actually be valid due to potential double spends), miners can commit to many blocks in recent history, selecting only the transactions that they perceive as valid from each block. SPV nodes can easily tell if a reorg has been deep enough to invalidate a particular commitment, and thus ignores any commitments that may be invalid. The chain is constructed such that every block will eventually have a valid SPV commitment to it.
 
-## The Jute Ordering Algorithm
+## The Jute Voting & Ordering Algorithms
 
 The genesis block must be the first block in the blockchain. All blocks must point to either the genesis block or descendents of the genesis block. Blocks are allowed to have multiple parents. Blocks are not allowed to have parents which are ancestors of other parents (this makes some of the code cleaner).
 
@@ -88,103 +86,68 @@ The genesis block must be the first block in the blockchain. All blocks must poi
 
 The block that has no children is called 'the tip'. Though there may be multiple tips at the same time, only one tip is considered at a time. For the purposes of consensus, the tip with the most work in its ancestry is considered the canonical tip, defining the ordering of blocks that is used for consensus.
 
-A direct child-parent connection is called an edge. Each block except for the tip block will have edges to one or more children. Blocks vote for edges. The block will execute a sort on its children based on the votes of previous blocks, and then cast votes based on the sort results. Sort using the following algorithm:
-``` 
-1. Set 'parent' to the genesis block
-2. Append 'parent' to the sorting.
-3. Look at the vote counts for all edges from 'parent' to its children and select the edge with the most votes.
-    3a. If there are no edges, return.
-    3b. If multiple edges have the same winning number of votes, use the hash of the tip block to seed a deterministic RNG that selects between them.
-4. Set 'child' to the child block of the winning edge.
-5. While 'child' has ancestors that are not in the sorting:
-    5a. In this loop only, view the DAG, tip, and vote counts as they were when the child was the tip block.
-    5b. Look at the vote counts for all edges from blocks in the sorting to blocks not in the sorting and select the edge with the most votes.
-        5b i.  If multiple edges have the same winning number of votes, select the edge with the most ancestors.
-        5b ii. If multiple edges have the same winning number of ancestors, use the hash of the tip block to seed a deterministic RNG that selects between them.
-    5c. Recurse to line 2, setting 'parent' equal to the child of the winning edge. When the recursion returns, iterate to line 5.
-6. Set 'parent' to 'child' and iterate to line 2.
+A direct child-parent connection is called an edge. Each block except for the tip block will have edges to one or more children. Each time a block is found, it casts a vote for a set of edges. These votes are then used to determine an ordering for the blocks.
+
+##### The Jute Voting Algorithm
+
+The voting algorithm starts at the genesis block and works backwards. From the genesis block, the voting algorithm looks at all edges to children of the genesis block, and selects the edge with the most votes. Then a vote is added to that edge, and not to any of the other edges. This is repeated until the tip block is reached, and a final vote is added to the edge that finds the tip block. This means that, of all the parents of the tip block, only one edge will get a vote.
+
+Pseudocode:
 ```
-The final sorting will have an ordering of blocks, some of which are pairings which match real edges in the DAG. For all real edges represented in the sorting, cast one vote. And that's it! Below is a set of DAGs labeled to have the post-sorting vote counts and the blocks in sorted order:
+current := genesisBlock
+for current != tip {
+    var winningChild
+    var maxVotes
+    for child := range current.children {
+        votes := edge(child, current).numVotes
+        if votes > maxVotes {
+            winningChild = child
+            maxVotes = votes
+        }
+    }
+    edge(winningChild, current).numVotes++
+    current = winningChild
+}
+```
 
-![Five Examples](http://i.imgur.com/HFy70s8.jpg)
+Sometimes, multiple children of a block will have edges with the same number of votes, and a tiebreaking solution is needed. First, the child with the most ancestors is preferred. If multiple children have both the same number of on their edge and the same number of ancestors, then the hash of the merging block is used to select between the children.
 
-![Two Bonus Examples](http://i.imgur.com/uv1TqCB.jpg)
+Psuedocode:
+```
+betweenAllChildren {
+    prefer (most votes)
+    prefer (most ancestors)
+    prefer (lowest result of H(seed || mergingBlockHash || child bock hash)
+}
+```
+
+Assuming that the block time is not significantly below the network propagation time, this voting code is sufficient. If the block time is sufficiently below the network propagation time, a well-networked minority hashrate attacker can begin censoring the blockchain, preventing any blocks from the honest majority from ever getting confirmed. The following psuedocode describes an extension to the voting which prevents this attack:
+
+[wip]
+
+A full golang implementation can be found in [consensus-poc/addnode.go](consensus-poc/addnode.go)
+
+---
+
+The code implements what is described above, however I believe there is an optimization. When choosing between two potential main chains in the event of a tie between chains, instead of preferring the number of ancestors of the child, you should prefer the number of ancestors in the entire potential main chain. This may introduce intractable computational complexity, or may introduce a security vulnerability, I haven't thought it through fully.
+
+##### The Jute Sorting Algorithm
+
+[wip]
+
+A full golang implementation can be found in [consensus-poc/sort.go](consensus-poc/sort.go)
 
 ## Intuition Around the Security of Jute
 
-Each block that is mined will only confirm one ordering of the chain, and once that confirmation has been applied, the confirmation cannot be altered by future merges into the chain. Once more than half of the hashrate is in agreement on a particular ordering, that ordering will be buried under lots of work and will be exponentially difficult for a minority hashrate adversary to undo.
-
-What remains then is determining how the network is able to reach agreement in normal circumstances, and determining what an adversary can do to delay agreement on a block ordering. In Bitcoin, you can get situations where exactly half of the network is working on one chain, and exactly half of the network is working on another chain of equal weight. This almost always resolves within a few minutes, as Bitcoin mining has high variance. One side will get lucky and the other will not, causing one chain to get ahead and allowing the honest hashrate to come into agreement on the longest chain. This is possible in particular because the block time is much higher than the network propagation time. A minority hashrate adversary is not able to interfere very well, because interference requires finding blocks fast enough to keep the hashrate balanced between two chains. When the block time is so high, this just isn't feasible.
-
-For Jute, with high block times the same high variance applies. As the block rate goes below the network propagation time, the amount of variance on the network reduces and blocks become a more continuous, predicatable stream. This may inhibit convergence, however it seems that obtaining balance between two halves of the hashrate would be extremely difficult even in the face of low-variance block production. An adversary certainly has a lot more flexibility with Jute, but maintaining balance would still require a lot of network superiority. An attacker could potentially save up blocks to try and maintain balance between two competing versions of the DAG sorting, which also helps, but as soon as one side has a moderate majority things converge very quickly. And, as discussed before, once convergence occurs it's exponentially difficult to reverse.
-
-Convergence is pretty easy to measure, and therefore confirmations would not count the number of blocks, but instead would report a measurement of the convergence. In the example of 'Bonus 2', we can see that there is a very low convergence on the idea that 'B' is going to be the winning block vs. 'E' or 'C'. This is because the DAG is very wide - out of 13 blocks only 5 have voted for the 'AB' edge, and potentially there are other tips out there which haven't propagated yet which further widen the DAG and reduce or eliminate the lead held by edge 'AB'. Convergence will start to appear more strongly once the DAG is more substantially longer than it is wide. In example 5, convergence on 'AB' is quite high, as the DAG is not very wide and it's likely that all future blocks are going to continue confirming 'AB' over 'AD' or any other alternatives that may exist.
-
-The width of a dag is closely related to the ratio of the block time vs. the network propagation time. Bitcoin as a dag would be very narrow, with less than 5% of blocks having siblings (likely less than 2%). On the other hand, if the block time were set to 1 second, the average width of the DAG would probably be 3+ blocks.
-
-#### Incentives to Merge Blocks
-
-Only the longest chain is considered when determining consensus. Though jute is designed to not have any orphans, this only works if people are merging eachother. If people are not merging eachother, those in the minority chain will lose out. They can gain an advantage over the majority chain by merging in the majority chain.
-
-There's also a tiebreaking rule where in the event of a tie, the edge confirming the most blocks is selected as the winner. By merging as many blocks as possible, you advantage yourself and your children, which increases your liklihood of appearing at a low height instead of a high height.
-
-Finally, an adversary has a much easier time executing attacks against the network if miners are not merging eachother's blocks.
-
-The data consumed by merges should not be counted towards block size. This eliminates any counter-incentives to performing merges, and provides a stronger guarantee that the network as a whole will engage in healthy behavior. Though the incentives to perform merges are not very strong, the counter-incentives are even weaker, meaning that merging should in general happen as much as possible.
-
-Blocks are capped to 20 parents to prevent DoS attacks trying to abuse the costless parents feature.
-
-#### Handling Merges from Lower Difficulty Time Periods
-
-Blocks can be created that choose any parent, and they are candidates to be merged into the main chain. This means that blocks could potentially choose parents from a bery early time period. Such blocks are not at risk of disrupting consensus, as they will not have enough confirmations on their edges to influence any changes, however it would not be fair to give these blocks the full block reward, as they were not as difficult to create. This also means that an adversary could potentially create thousands of blocks with ease due to the lower difficulty.
-
-A rule probably needs to be added to jute enforcing that blocks are at least somewhat recent, and ensuring that payouts are fair - lower difficulty blocks should receive lower rewards.
-
-#### Costless Attacks
-
-Because there are no orphans, there's little to no cost for an attacker to attempt and fail to execute a double-spend of a confirmed transaction on the network. Such a double spend is not going to affect the profitability of other miners, and so is not a huge concern in terms of mining centralization. On the other hand, users like to know that their transactions are safe.
-
-An attacker cannot choose when they get lucky. A 40% hashrate attacker is going to be able to double spend a 3-confirmation transaction only 6.5% of the time. Block times in Jute are very low, so transactions perceived as high risk would not be too inconvenienced to wait for a few extra confirmations. Network latency does play a role - you cannot be certain at all that a transaction is confirmed until the network has had at least a few full propagation cycles to reveal any potential double spends. Even without adversarial miners you need to wait at least that long. Sub-second block times will never mean sub-second confirmation times.
-
-Things get more annoying when miners start making SPV commitments to old blocks. For SPV to be valuable, a block has to be excluded from the chain if it commits to an invalid transaction. If an attacker can reorg deep enough to invalid SPV commitments by other miners, the attacker will succeed in creating orphans. If the reorg attempt is not going well, it can be aborted early at no cost to the attacker.
-
-As long as the SPV commitments are sufficiently far back, there is little risk of an attacker pulling this off successfully. For lower block times, sufficiently far back may only take 5-10 minutes. But if the block time needs be set higher than 5 seconds, sufficiently far back may be 30+ minutes, which reduces the utility of SPV.
-
-#### Transaction Fee Complications
-
-Absent transcation fees, jute is perfectly fair to miners, independent of both hashrate and network connecectivity (so long as latency is under a few minutes, which isn't that much of an ask).
-
-Bitcoin is increasingly going to be dominated by transaction fee rewards in the future. Unfortunately, achieving perfect fairness in the face of transaction fees is substantially harder. The ideal solution would be a mining fee pool that collects all of the transaction fees and pays out evenly to miners. Unfortuantely, it's pretty easy for an adversary to exploit a mining fee pool.
-
-When the block time is sufficiently above the network propagation time, most of the problems don't exist. A high hashrate attacker has relatively little ability to manipulate the ordering of blocks, and things will be largely fair between high latency, low hashrate miners and low latency, high hashrate miners.
-
-As the block time comes down though, the low latency miners increasingly have the ability to see which fees have been mined, they have the ability to exploit network advantages to try and steal fees, and high hashrate miners have increased ability to manipulate the exact ordering of transactions. Not a problem when miner fees are a negligable part of your income, but reality is against us.
-
-When the block time is substantially below the network propagation time, a low-latency high-hashrate miner has a very strong ability to choose which transactions come before which other transactions in the short term, because they can dump a huge portion of the hashrate into confirming a single set of transactions when the rest of the hashrate is distributed over a much wider graph.
-
-If blocks are not full, the larger miners are going to be able to more or less monopolize the transaction fees by mining strategically. If they are full, larger miners will still be able to have a significant amount of control over who is getting fees, and will be able to fairly trivially steal from a small percent of smaller miners. If they use that strategically to target one miner at a time, they can iteratively put their smaller competition out of business.
-
-----
-
-It's not really that gloomy though. There are a handful of strategies we can emply to mitigate this. The most conceptually simple idea that I have right now involves doing post-processing at the consensus layer. If two miners mine the same transaction, you can split the fee between them. If two miners mine conflicting transactions, you can accept the transaction with the larger fee and split it between the miners. If there is not a large enough transaction log, you can perform 'fee stretching' by stipulating that at most 1/N of the fee can be collected per block, and that to get the whole fee it needs to be mined in N different blocks. This gives smaller miners a better chance.
-
-I have a bunch of other ideas as well.
-
-### A Summary of Potential Problems
-
-+ As block times decrease, the largest legal block size also decreases. Below some threshold that seems to be between 5kb and 25kb (based on some... erm... interviews) complex constructions like CoinJoin and MimbleWimble become infeasible.
-+ As block times decrease, variance also decreases, which may make it more difficult for the network to begin to converge on the result of a transaction. My vague intuition says that this really isn't going to be much of an issue, but I don't currently have the mathematics needed to back up that intuition. It needs to be explored more.
-+ If the block time is not low enough, doing SPV securely is going to mean that commitments will need to be made long after the block containing the transaction is mined. Potentially 30 minutes or more. If the block time IS low enough, SPV may only need 5 minutes of delay, which is actually an improvement over Bitcoin. If you can assume that the strongest attacker has less than 33% hashrate, 5 minutes should be practical. If you want to defend also against 45% hashrate attackers and really high latency networks, you'll probably want 1 or 2 second block times combined with 20+ minutes of wait time (these numbers are based on some simulations I ran - code will be provided in a later draft).
-+ Perhaps the worst problem relates to transaction fee fairness. Bitcoin is increasingly going to be dominated by transaction fees, so it's not something that can be overlooked. There are lots of ideas for managing the fee unfairness, but most of them introduce a fair amount of complexity or make other compromises. I have genuine hope that a simple solution exists, but at this time we do not seem to be very close to finding it.
-
+[see slides - work in progress]
 
 ### Practical Jute Today
 
 + Deploy the jute consensus algorithm
-+ Set the block time to 5 seconds
-+ Set the block size to 25kb
-+ Set SPV to commit to block ranges after they have 600+ confirmations (50 minutes)
-+ Don't allow merges of blocks if their most recent parent already has 2000+ confirmations
++ Set the block time to 6 seconds
++ Set the block size to 50kb
++ Set SPV to commit to block ranges after they have 50+ confirmations (5 minutes)
++ Don't allow merges of blocks if their most recent parent already has 200+ confirmations
 + Ignore miner fee complications because they shouldn't come into play too much at 5 second confirmation times
 
 Realistically, by the time this was implemented we'd have worked through a lot more of the issues. I have casually handwaved over things like the need to update the difficulty adjustment algorithm, the timestamp algorithm, and probably a whole host of other protocol-level things that this interferes with. Largely though I don't think those are hard things to adjust, you just need to be careful and methodical.
