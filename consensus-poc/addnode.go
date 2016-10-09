@@ -127,6 +127,10 @@ func (g *Graph) CreateNode(parents ...*GraphNode) *GraphNode {
 	var addEdges func(parents []*GraphNode, childName nodeName)
 	addEdges = func(parents []*GraphNode, childName nodeName) {
 		for _, parent := range parents {
+			// Add the parent-child edge.
+			e := edge(childName, parent.name)
+			tip.relativeVoteGraph[e] += 0
+
 			// Skip this parent if the parent has already voted.
 			if visited[parent.name] {
 				continue
@@ -137,17 +141,12 @@ func (g *Graph) CreateNode(parents ...*GraphNode) *GraphNode {
 			for _, vote := range parent.edgeVotes {
 				tip.relativeVoteGraph[vote]++
 			}
-
-			// Add the parent-child edge with zero votes if it has not yet
-			// received any votes.
-			e := edge(childName, parent.name)
-			tip.relativeVoteGraph[e] += 0
 			addEdges(parent.parents, parent.name)
 		}
 	}
 	// Perform a DFS on the parents and count the total number of votes for
 	// each edge in the graph visible to the new node.
-	addEdges(parents, tip.name)
+	addEdges(tip.parents, tip.name)
 
 	// Update the relative height of the node to reflect its actual relative
 	// height.
