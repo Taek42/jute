@@ -15,11 +15,12 @@ conditions is very useful.
 
 Some results of note:
 
+```
 33% attacker, 50 confirmations (5 minutes), 0.06% success rate.
 	Iterations:                          100000
 	Attacker Hashrate:                   33%
-	Block Time:                          18000 (milliseconds)
-	Honest Miner Block Propagation Time: 6000 (milliseconds)
+	Block Time:                          6000 (milliseconds)
+	Honest Miner Block Propagation Time: 18000 (milliseconds)
 	Confirmations:                       50
 	Threads:                             2
 	Difficulty:                          10
@@ -29,8 +30,8 @@ Some results of note:
 40% attacker, 150 confirmations (15 minutes), 0.04% success rate.
 	Iterations:                          100000
 	Attacker Hashrate:                   40%
-	Block Time:                          18000 (milliseconds)
-	Honest Miner Block Propagation Time: 6000 (milliseconds)
+	Block Time:                          6000 (milliseconds)
+	Honest Miner Block Propagation Time: 18000 (milliseconds)
 	Confirmations:                       150
 	Threads:                             2
 	Difficulty:                          10
@@ -40,13 +41,14 @@ Some results of note:
 45% attacker, 500 confirmations (50 minutes), 0.08% success rate.
 	Iterations:                          100000
 	Attacker Hashrate:                   45%
-	Block Time:                          18000 (milliseconds)
-	Honest Miner Block Propagation Time: 6000 (milliseconds)
+	Block Time:                          6000 (milliseconds)
+	Honest Miner Block Propagation Time: 18000 (milliseconds)
 	Confirmations:                       500
 	Threads:                             2
 	Difficulty:                          10
 	Nonce Starting Point:                4905061595660334175
 	Attacker Wins: 75 (0.075000%)
+```
 
 Summarized, getting below a 0.1% success rate requires 50 confirmations against
 a 33% hashrate attacker, 150 confirmations against a 40% hashrate attacker, and
@@ -54,16 +56,18 @@ a 33% hashrate attacker, 150 confirmations against a 40% hashrate attacker, and
 
 ----------------------
 
+```
 33% attacker, 200 confirmations (20 minutes), **1 million iterations**, 0% success rate.
-	Iterations:                          1000000
+	Iterations:                          **1000000**
 	Attacker Hashrate:                   33%
-	Block Time:                          18000 (milliseconds)
-	Honest Miner Block Propagation Time: 6000 (milliseconds)
+	Block Time:                          6000 (milliseconds)
+	Honest Miner Block Propagation Time: 18000 (milliseconds)
 	Confirmations:                       200
 	Threads:                             2
 	Difficulty:                          10
 	Nonce Starting Point:                5890706053630306446
 	Attacker Wins: 0 (0%)
+```
 
 Summarized, its extremely unlikely that a 33% hashrate attacker can undo more
 than 200 confirmations. In Bitcoin, reorgs of more than 20 minutes of history
@@ -72,32 +76,36 @@ accident instead of being intentionally performed by an attacker.
 
 ----------------------
 
+```
 40% attacker, 300 confirmations (30 minutes), **120 second propagation latency**, 0.001% success rate.
 	Iterations:                          100000
 	Attacker Hashrate:                   40%
-	Block Time:                          **120000** (milliseconds)
-	Honest Miner Block Propagation Time: 6000 (milliseconds)
+	Block Time:                          6000 (milliseconds)
+	Honest Miner Block Propagation Time: **120000** (milliseconds)
 	Confirmations:                       300
 	Threads:                             2
 	Difficulty:                          10
 	Nonce Starting Point:                7693741952947876035
 	Attacker Wins: 1 (0.001%)
+```
 
 Summarized, a 40% hashrate attacker is highly unlikely to undo more than 300
 confirmations, even if there is extreme latency between the honest miners.
 
 ----------------------
 
+```
 45% attacker, 1200 confirmations (**10 minutes**), 0.002% success rate.
 	Iterations:                          100000
 	Attacker Hashrate:                   45%
-	Block Time:                          18000 (milliseconds)
-	Honest Miner Block Propagation Time: **500** (milliseconds)
+	Block Time:                          **500** (milliseconds)
+	Honest Miner Block Propagation Time: 18000 (milliseconds)
 	Confirmations:                       1200
 	Threads:                             2
 	Difficulty:                          10
 	Nonce Starting Point:                8334072111784665621
 	Attacker Wins: 2 (0.002%)
+```
 
 Summarized, bringing the block time very low (500 milliseconds) enables
 confirmations to happen very quickly. While the extreme difference between the

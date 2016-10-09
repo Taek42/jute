@@ -46,10 +46,10 @@ func tryHash(num, denom int) bool {
 func main() {
 	// Confiration.
 	simulationIterations := int(100e3)
-	attackerHashrate := 45             // percent
+	attackerHashrate := 40             // percent
 	blockTime := 6 * 1000              // milliseconds
 	honestPropagationTime := 18 * 1000 // milliseconds
-	confirmations := 500               // number of blocks
+	confirmations := 150               // number of blocks
 	threads := 2                       // set to # of CPU cores. Works best in factors of 2 and 5 (2, 4, 5, 8, 10, etc.)
 	difficulty := 10                   // chance of finding a block is hashrate / difficulty. Increase for slower, more accurate simulation.
 
@@ -133,5 +133,5 @@ func main() {
 
 	Attacker Wins: %v (%.6f%%)
 
-`, simulationIterations, attackerHashrate, honestPropagationTime, blockTime, confirmations, threads, difficulty, nonceStart, attackerWins, 100*float64(attackerWins)/float64(simulationIterations))
+`, simulationIterations, attackerHashrate, blockTime, honestPropagationTime, confirmations, threads, difficulty, nonceStart, attackerWins, 100*float64(attackerWins)/float64(simulationIterations))
 }
