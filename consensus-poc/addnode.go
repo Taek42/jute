@@ -52,7 +52,6 @@ func (g *Graph) CreateNode(parents ...*GraphNode) *GraphNode {
 	tip := &GraphNode{
 		name:              nodeName(strconv.Itoa(g.nameCounter)),
 		parents:           parents,
-		relativeHeight:    1,
 		relativeVoteGraph: make(map[edgeName]int),
 
 		salt: g.salt,
@@ -83,10 +82,6 @@ func (g *Graph) CreateNode(parents ...*GraphNode) *GraphNode {
 		}
 	}
 	addEdges(tip.parents, tip.name)
-
-	// Update the relative height of the node to reflect its actual relative
-	// height.
-	tip.relativeHeight += len(visited)
 
 	// Add the tip block as a child to each of its parents.
 	for _, parent := range tip.parents {

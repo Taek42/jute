@@ -274,7 +274,7 @@ for current != newBlock {
 
 A full golang implementation can be found in [consensus-poc/addnode.go](consensus-poc/addnode.go)
 
-[wip - explain the security here]
+###### Security Intuition Around the Edge Voting
 
 #### The Jute Sorting Algorithm
 

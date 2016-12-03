@@ -17,7 +17,6 @@ func nextUnorderedAncestor(edges []edgeName, coorespondingChildren []*GraphNode,
 	// As this is a simulation, the names of the blocks are used to seed the
 	// rng in lieu of their hashes.
 	winningVotes := 0
-	winningHeight := 0
 	var winningHash [32]byte
 	var winner *GraphNode
 	for i, child := range coorespondingChildren {
@@ -26,14 +25,9 @@ func nextUnorderedAncestor(edges []edgeName, coorespondingChildren []*GraphNode,
 		childHash := sha256.Sum256([]byte("salt" + tip.name + child.name))
 		if votes > winningVotes {
 			winningVotes = votes
-			winningHeight = child.relativeHeight
 			winningHash = childHash
 			winner = child
-		} else if votes == winningVotes && child.relativeHeight > winningHeight {
-			winningHeight = child.relativeHeight
-			winningHash = childHash
-			winner = child
-		} else if votes == winningVotes && child.relativeHeight == winningHeight && bytes.Compare(winningHash[:], childHash[:]) < 0 {
+		} else if votes == winningVotes && bytes.Compare(winningHash[:], childHash[:]) < 0 {
 			winningHash = childHash
 			winner = child
 		}
