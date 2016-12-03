@@ -44,18 +44,6 @@ type GraphNode struct {
 	salt string
 }
 
-// RelativeOrdering sorts the graph using the supplied node as the tip, then
-// prints the resulting ordering.
-func (gn *GraphNode) RelativeOrdering() string {
-	relativeOrdering := gn.relativeOrdering()
-	s := fmt.Sprint(relativeOrdering[0].name)
-	for i := 1; i < len(relativeOrdering); i++ {
-		s = fmt.Sprint(s, "-")
-		s = fmt.Sprint(s, relativeOrdering[i].name)
-	}
-	return s
-}
-
 // Graph is the base type that is used to build out a graph of nodes.
 type Graph struct {
 	// nameCounter enables the graphViewer to assign unique names to each node.
@@ -91,21 +79,4 @@ func NewGraph() *Graph {
 		},
 		salt: string(saltBase),
 	}
-}
-
-// SageGen returns a string that can be fed into Sage to create a visualization
-// of the longest chain and the votes for each edge in that chain.
-func (g *Graph) SageGen(tip *GraphNode) string {
-	s := fmt.Sprintln("G = DiGraph()")
-	for edge, weight := range tip.relativeVoteGraph {
-		// Parse the edge name into its components.
-		nodes := strings.Split(string(edge), "-")
-		s = fmt.Sprint(s, "G.add_edge("+nodes[0]+", "+nodes[1]+", "+strconv.Itoa(int(weight))+")\n")
-	}
-	relativeOrdering := tip.RelativeOrdering()
-	s = fmt.Sprint(s, "H = G.plot(edge_labels=True, layout='acyclic', edge_color='grey')\n")
-	s = fmt.Sprint(s, "H.show(title=\""+relativeOrdering+"\", figsize=(5,16))\n")
-	filename := relativeOrdering + ".png"
-	s = fmt.Sprintf("%sH.save(filename=\"/home/user/plots/%s\", title=\""+relativeOrdering+"\", figsize=(5,16))\n", s, filename)
-	return s
 }
