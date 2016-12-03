@@ -320,9 +320,9 @@ algorithm is applied until the original primary child is reached. If the
 original primary child still has unordered ancestors at that point, the
 algorithm is repeated until the primary child has no more unordered ancestors.
 
-##### Psuedocode for Ordering Blocks in Jute:
-
-A full golang implementation can be found in [consensus-poc/sort.go](consensus-poc/ordering.go)
+Psuedocode has been omitted for the ordering algorithm, as it's not very
+helpful. A full golang implementation can be found in
+[consensus-poc/sort.go](consensus-poc/ordering.go)
 
 ### Practical Jute Today
 
