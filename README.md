@@ -172,7 +172,7 @@ under attack. This means that in the worst case, only a moderate amount of
 strain is placed on the CPU, the memory, the hard drive, and the network
 bandwidth.
 
-##### SPV Verification
+##### SPV Support
 
 Devices with limited resources, such as cell phones, should be able to verify
 incoming transactions by only adding the assumption that the history with the
@@ -193,117 +193,90 @@ miner has as much connectivity as the average consumer.
 
 ## Jute Introduction
 
-Jute allows blocks to have multiple parents, effectively converting the
-blockchain into a directed acyclic graph, or DAG. Consensus is heavily
-dependent on having a precise ordering for transactions, and security is
-heavily dependent on knowing that a highly confirmed transaction cannot be
-re-ordered or re-organized unless an impractical amount of additional,
-adversarial work is applied to the chain.
+Jute is a block based consensus algorithm where blocks are allowed to have
+multiple parents, effectively converting the blockchain into a directed
+acyclic graph or DAG.
 
-Jute is an algorithm for taking DAGs and arriving at a total ordering based on
-the amount of work confirming each potential ordering. Once the majority of the
-hashrate has agreed upon a particular ordering, that ordering alone receives
-votes, which means that a minority hashrate is unable to cause reordering or
-reorganization without being exceptionally lucky.
+The DAG is converted into a linear history through a specific sorting algorithm
+(explained below). Using that algorithm as a foundation, we are able to achieve
+all of the security properties described above.
 
-Jute ignores the validity of transactions in the immediate term, allowing any
-block with valid proof-of-work to be accepted into the chain. Ignoring
-transaction validity is important for eliminating orphans, because multiple
-miners finding blocks at the same time should not be heavily penalized if there
-is some transaction overlap in those blocks - it will be unavoidable for high
-latency miners. This does not need to prevent SPV however. Instead of making
-SPV commitments to the transcations in the blocks they are mining (where they
-are not certain that the transactions will actually be valid due to potential
-double spends), miners can commit to many blocks in recent history, selecting
-only the transactions that they perceive as valid from each block. SPV nodes
-can easily tell if a reorg has been deep enough to invalidate a particular
-commitment, and thus ignores any commitments that may be invalid. The chain is
-constructed such that every block will eventually have a valid SPV commitment
-to it.
+Jute is an inclusive consensus protocol, which means all blocks are accepted
+into the linear history, even blocks that have invalid transactions. Nodes are
+able to determine which transactions are valid by looking at the final ordering
+and ignoring any invalid transactions.
 
-## The Jute Voting & Ordering Algorithms
+Miners are able to commit to the valid transactions such that SPV nodes are
+able to securely tell which transactions within a block are invalidated by
+conflicting history. This means that SPV nodes can achieve secuirty equivalent
+to the security of SPV nodes in Satoshi consensus, even though the history can
+contain invalid transactions.
 
-The genesis block must be the first block in the blockchain. All blocks must
-point to either the genesis block or descendents of the genesis block. Blocks
-are allowed to have multiple parents. Blocks are not allowed to have parents
-which are ancestors of other parents (this makes some of the code cleaner).
+## The Jute Sorting Algorithm
+
+The genesis block must be the first block in the blockchain. All other blocks
+must have the genesis block as either a direct or indirect ancestor. Blocks are
+allowed to have multiple parents. Blocks are not allowed to have parents which
+are ancestors of other parents.
 
 ![Example DAG](http://i.imgur.com/IHMN24h.jpg)
 
-The block that has no children is called 'the tip'. Though there may be
-multiple tips at the same time, only one tip is considered at a time. For the
-purposes of consensus, the tip with the most work in its ancestry is considered
-the canonical tip, defining the ordering of blocks that is used for consensus.
+A block that has no children is called a tip block. Multiple tip blocks may
+exist simultaneously, resulting in multiple alternate histories. The sorting
+algorithm provided below indicates which tip block is considered the canonical
+history. A miner will add every known tip block as a parent of the block they
+are working on.
 
 A direct child-parent connection is called an edge. Each block except for the
-tip block will have edges to one or more children. Each time a block is found,
-it casts a vote for a set of edges. These votes are then used to determine an
-ordering for the blocks.
+tip block will have edges to one or more children.
 
-##### The Jute Voting Algorithm
+#### Weighting Edges
 
-The voting algorithm starts at the genesis block and works backwards. From the
-genesis block, the voting algorithm looks at all edges to children of the
-genesis block, and selects the edge with the most votes. Then a vote is added
-to that edge, and not to any of the other edges. This is repeated until the tip
-block is reached, and a final vote is added to the edge that finds the tip
-block. This means that, of all the parents of the tip block, only one edge will
-get a vote.
+Jute establishese a linear ordering for blocks by identifying and leveraging
+primary edges. Each block that is added to the consensus DAG gets to vote for a
+set of primary edges, adding a single vote to each priamry edge.
 
-Pseudocode:
+Primary edges are chosen starting from the genesis block. All edges from the
+genesis block to child blocks are considered, and the single edge with the most
+votes is chosen as the primary edge. That edge receives another vote, and then
+the process is repeated until the new block is reached, at which point the
+voting is complete.
+
+If multiple edges have the same winning number of votes, one is selected
+randomly using a random number generator seeded by the hash of the parent block
+appended to the hash of the new block.
+
+###### Pseudocode for Primary Edge Voting:
 ```
+var newBlock // a newly solved block extending the chain
 current := genesisBlock
-for current != tip {
-    var winningChild
-    var maxVotes
+for current != newBlock {
+    winningChildren := {}
+    maxVotes := -1
     for child := range current.children {
         votes := edge(child, current).numVotes
         if votes > maxVotes {
-            winningChild = child
+            winningChildren = {child}
             maxVotes = votes
-        }
+        } else if votes == maxVotes {
+			winningChildren = append(winningChildren, child)
+		}
     }
-    edge(winningChild, current).numVotes++
+	if len(winningChildren) > 1 {
+		rng := seedRNG(Hash(newBlock, current))
+		winningChildren = rng.Randomize(winningChildren)
+	}
+
+    edge(winningChildren[0], current).numVotes++
     current = winningChild
 }
 ```
 
-Sometimes, multiple children of a block will have edges with the same number of
-votes, and a tiebreaking solution is needed. First, the child with the most
-ancestors is preferred. If multiple children have both the same number of on
-their edge and the same number of ancestors, then the hash of the merging block
-is used to select between the children.
-
-Psuedocode:
-```
-betweenAllChildren {
-    prefer (most votes)
-    prefer (most ancestors)
-    prefer (lowest result of H(seed || mergingBlockHash || child bock hash)
-}
-```
-
-Assuming that the block time is not significantly below the network propagation
-time, this voting code is sufficient. If the block time is sufficiently below
-the network propagation time, a well-networked minority hashrate attacker can
-begin censoring the blockchain, preventing any blocks from the honest majority
-from ever getting confirmed. The following psuedocode describes an extension to
-the voting which prevents this attack:
-
-[wip]
-
 A full golang implementation can be found in [consensus-poc/addnode.go](consensus-poc/addnode.go)
 
----
+[wip - explain the security here]
 
-The code implements what is described above, however I believe there is an
-optimization. When choosing between two potential main chains in the event of a
-tie between chains, instead of preferring the number of ancestors of the child,
-you should prefer the number of ancestors in the entire potential main chain.
-This may introduce intractable computational complexity, or may introduce a
-security vulnerability, I haven't thought it through fully.
-
-##### The Jute Sorting Algorithm
+#### The Jute Sorting Algorithm
 
 [wip]
 
@@ -311,7 +284,7 @@ A full golang implementation can be found in [consensus-poc/sort.go](consensus-p
 
 ## Intuition Around the Security of Jute
 
-[see slides - work in progress]
+[wip - see slides]
 
 ### Practical Jute Today
 
