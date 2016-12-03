@@ -9,10 +9,8 @@ import (
 // next from a list of unordered ancestors.
 func nextUnorderedAncestor(edges []edgeName, coorespondingChildren []*GraphNode, tip *GraphNode) *GraphNode {
 	// The child with the most votes on its edge to the parent wins. If
-	// multiple children have the winning number of edge votes, select the
-	// child with the greatest relative height. If multiple children have both
-	// the winning number of edge votes and the winning relative height, select
-	// between them randomly using the hash of the tip block as a seed.
+	// multiple children have the winning number of edge votes, select between
+	// them randomly using the hash of the tip block as a seed.
 	//
 	// As this is a simulation, the names of the blocks are used to seed the
 	// rng in lieu of their hashes.
@@ -38,10 +36,6 @@ func nextUnorderedAncestor(edges []edgeName, coorespondingChildren []*GraphNode,
 // relativeOrdering returns the sorted graph from the perspective of the
 // calling node.
 func (gn *GraphNode) relativeOrdering() []*GraphNode {
-	var relativeOrdering []*GraphNode
-	ordered := make(map[nodeName]bool)
-	queued := make(map[nodeName]bool)
-
 	// Find the genesis block.
 	current := gn
 	for len(current.parents) != 0 {
@@ -49,13 +43,16 @@ func (gn *GraphNode) relativeOrdering() []*GraphNode {
 	}
 	genesis := current
 
+	ordered := make(map[nodeName]bool)
+	queued := make(map[nodeName]bool)
+	var relativeOrdering []*GraphNode
 	var updateOrdering func(base *GraphNode, tip *GraphNode)
 	updateOrdering = func(base *GraphNode, tip *GraphNode) {
 		queued[base.name] = true
-		// Before continuing, check that all ancestors of the base block have
-		// been added to the ordering. If there are one or more unordered
-		// ancestors, select one by edge votes and recurse using the base as
-		// the new tip, and the unordered ancestor as the new base.
+		// Check that all ancestors of the base block are in the ordering. If
+		// not, compare all edges from blocks in the ordering to unordered
+		// ancestors and select the edge with the most votes. Set the child of
+		// that edge to the new base, and set the original base to the new tip.
 		for {
 			var importantEdges []edgeName
 			var correspondingChildren []*GraphNode
@@ -98,24 +95,22 @@ func (gn *GraphNode) relativeOrdering() []*GraphNode {
 			updateOrdering(winner, base)
 		}
 
-		// All ancestors of the base are now ordered. Add the base to the
-		// ordering.
+		// All ancestors of the base are now ordered. If the base is the tip,
+		// there is nothing left to do.
 		if base == tip {
 			return
 		}
+
+		// Add the base to the ordering, then select a new primary child and recurse.
 		relativeOrdering = append(relativeOrdering, base)
 		ordered[base.name] = true
-
-		// Pick a child to follow up the relative main chain.
 		_, next := primaryEdge(base, tip)
 		if queued[next.name] {
 			return
 		}
-		// Iterate to the top, using the next main chain block as the base, and
-		// using the same tip.
 		updateOrdering(next, tip)
 	}
 	updateOrdering(genesis, gn)
-	relativeOrdering = append(relativeOrdering, gn)
+	relativeOrdering = append(relativeOrdering, gn) // Edge case.
 	return relativeOrdering
 }
