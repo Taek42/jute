@@ -83,11 +83,10 @@ initial capital needed for mining is higher. Large miners can more easily
 amortize initial capital costs meaning that larger, more centralized miners
 experience higher per-hashrate profitability.
 
-Things like [compact
-blocks](https://bitcoincore.org/en/2016/06/07/compact-blocks-faq/), [the relay
-network](http://bitcoinrelaynetwork.org/),
-[FIBRE](http://bluematt.bitcoin.ninja/2016/07/07/relay-networks/), [weak
-blocks](http://popeller.io/index.php/2016/01/19/weak-blocks-the-good-and-the-bad/),
+Things like [compact blocks](https://bitcoincore.org/en/2016/06/07/compact-blocks-faq/),
+[the relay network](http://bitcoinrelaynetwork.org/),
+[FIBRE](http://bluematt.bitcoin.ninja/2016/07/07/relay-networks/),
+[weak blocks](http://popeller.io/index.php/2016/01/19/weak-blocks-the-good-and-the-bad/),
 and other fast-relay schemes all help to improve network utilization, however
 most of these strategies rely on pre-forwarding transactions and do not handle
 adversarial blocks very well.
@@ -128,9 +127,69 @@ ordering is being endorsed by a majority of the hashrate, which can take a
 couple of network propagation cycles. Confirmation times with jute are still in
 the ballpark of 5-10 minutes, but with much lower variance.
 
-## Security Requirements of Blockchains
+## Requirements for a Competitor to Satoshi Consensus
 
-[See slides - work in progress]
+The goal of jute is to replace Satoshi consensus as the primary mechanism for
+acheiving decentralized consensus. To be a proper replacement, it must be able
+to provide all of the benefits that Satoshi consensus can provide, as well as
+provide additional features that Satoshi consensus is unable to provide.
+
+##### Immutable History
+
+Once history is added to consensus with a sufficient number of confirmations,
+it must be provably difficult to alter that history. Each additional
+confirmation should confirm only that history, and the network should converge
+such that the entire network is confirming only that history. Additionally, the
+amount of work required to alter the history must be equal to the total amount
+of work confirming the history.
+
+##### Incentive Compatibility
+
+Miners should make the optimal amount of money by following the protocol as
+prescribed. Deviations from the protocol should either be non-harmful to
+network, or more ideally should result in a significant reduction in
+profitability.
+
+The incentive compatibility ideally applies to miners having up to 50% of the
+hashrate.
+
+##### Censorship Resistance
+
+Groups controlling less than 50% of the hashrate should be unable to prevent a
+transaction from being included in the network.
+
+##### Fast Double Spend Resisitance
+
+Confidence around the security of a transaction should be achieved consistently
+in under two hours. Confidence around smaller transactions should be achieved
+consistently in under half an hour.
+
+##### Accessible Resource Requirements
+
+The median consumer desktop connected via a median internet connection should
+be able to participate as a fully validating node, even when the network is
+under attack. This means that in the worst case, only a moderate amount of
+strain is placed on the CPU, the memory, the hard drive, and the network
+bandwidth.
+
+##### SPV Verification
+
+Devices with limited resources, such as cell phones, should be able to verify
+incoming transactions by only adding the assumption that the history with the
+most work is a valid history.
+
+##### Hashrate Profitability Fairness
+
+Miners with more hashrate should not see higher profitability per-hashrate. Put
+another way, miners should see a perfectly linear increase in profitability as
+they centralize and add hashrate, as opposed to seeing superlinear
+profitability gains.
+
+##### Network Profitability Fairness
+
+Miners with superior network connections should not see higher profitability
+compared to miners with inferior network connections, so long as the inferior
+miner has as much connectivity as the average consumer.
 
 ## Jute Introduction
 
