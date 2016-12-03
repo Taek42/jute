@@ -113,7 +113,7 @@ func (gn *GraphNode) relativeOrdering() []*GraphNode {
 		ordered[base.name] = true
 
 		// Pick a child to follow up the relative main chain.
-		_, next := primaryEdge(base, tip)
+		next := nextMainNode(base, tip)
 		if queued[next.name] {
 			return
 		}
