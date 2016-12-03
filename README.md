@@ -230,9 +230,9 @@ are working on.
 A direct child-parent connection is called an edge. Each block except for the
 tip block will have edges to one or more children.
 
-#### Weighting Edges
+### Weighting Edges
 
-Jute establishese a linear ordering for blocks by identifying and leveraging
+Jute establishes a linear ordering for blocks by identifying and leveraging
 primary edges. Each block that is added to the consensus DAG gets to vote for a
 set of primary edges, adding a single vote to each priamry edge.
 
@@ -246,7 +246,7 @@ If multiple edges have the same winning number of votes, one is selected
 randomly using a random number generator seeded by the hash of the parent block
 appended to the hash of the new block.
 
-###### Pseudocode for Primary Edge Voting:
+##### Pseudocode for Primary Edge Voting:
 ```
 var newBlock // a newly solved block extending the chain
 current := genesisBlock
@@ -274,7 +274,7 @@ for current != newBlock {
 
 A full golang implementation can be found in [consensus-poc/addnode.go](consensus-poc/addnode.go)
 
-###### Security Intuition Around the Edge Voting
+##### Security Intuition Around the Edge Voting
 
 The primary edges are selected by popularity. Once the network has converged on
 a particular edge as the primary edge, every block that gets produced will vote
@@ -297,15 +297,32 @@ not unreasonable that a 25% hashrate miner would get lucky enough to alter
 history with 3 confirmations, but it is exceedingly unlikely that a 25%
 hashrate miner would be able to alter history with 1000 confirmations.
 
-#### The Jute Sorting Algorithm
+### The Jute Ordering Algorithm
 
-[wip]
+Blocks are ordered in Jute based on the edge votes. The genesis block is set as
+the first block in history. Then the primary edge from the genesis block to a
+child is identified using the same method as above. We will label the
+associated child as the primary child.
 
-A full golang implementation can be found in [consensus-poc/sort.go](consensus-poc/sort.go)
+All ancestors of the primary child must be included in the ordering before the
+child can be included. Once all ancestors are included, the next primary child
+is identified and the algorithm is repeated until a tip block is reached and
+all ancestors of that tip block have been included in the ordering.
 
-## Intuition Around the Security of Jute
+If the primary child has multiple unordered ancestors, all edges leading from a
+block in the ordering directly to an unordered ancestor are observed. The votes
+are tallied on each edge as seen by the primary child (meaning that votes from
+decendents of or siblings of the primary child are ignored). The edge with the
+greatest number of votes is selected, tiebreaking using a random number
+generator seeded by the hash of the primary child and the unordered ancestor.
+Recursively, the winner is set as the new primary child, and the ordering
+algorithm is applied until the original primary child is reached. If the
+original primary child still has unordered ancestors at that point, the
+algorithm is repeated until the primary child has no more unordered ancestors.
 
-[wip - see slides]
+##### Psuedocode for Ordering Blocks in Jute:
+
+A full golang implementation can be found in [consensus-poc/sort.go](consensus-poc/ordering.go)
 
 ### Practical Jute Today
 
