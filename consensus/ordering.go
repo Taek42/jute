@@ -12,7 +12,7 @@ func directUnorderedAncestors(ordered map[nodeName]bool, tip *GraphNode) (duas [
 	for len(unvisited) != 0 {
 		// Pop a node off of the unvisited stack.
 		ancestor := unvisited[0]
-		unvisited := unvisited[1:]
+		unvisited = unvisited[1:]
 		if ordered[ancestor.name] {
 			// All ancestors of this node are by definition also ordred, no
 			// unordered ancestors to be found here.
@@ -68,7 +68,7 @@ func (gn *GraphNode) relativeOrdering() []*GraphNode {
 	for {
 		// Before 'current' can be added to the ordering, all ancestors must be
 		// added to the ordering.
-		for duas := directUnorderedAncestors(ordered, current); len(duas) != 0; {
+		for duas := directUnorderedAncestors(ordered, current); len(duas) != 0; duas = directUnorderedAncestors(ordered, current) {
 			winner := nextUnorderedAncestor(duas, current)
 			ordering = append(ordering, winner)
 			ordered[winner.name] = true
