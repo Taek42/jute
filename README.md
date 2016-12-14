@@ -342,5 +342,6 @@ be careful and methodical.
 
 #### Acknowledgements
 
+Thanks to Jonathan Harvey-Buschel for contributions + research collaboration.
 Thanks to Andrew Poelstra for review + corrections.  
 Thanks to Bob McElrath for active research on DAG based consensus, which has influenced this document.
