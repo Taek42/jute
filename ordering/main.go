@@ -1,5 +1,9 @@
 package main
 
+// main.go contains code to generate SageMath graphs of the Jute orderings of
+// various graphs. None of the core code for the Jute ordering algorithm is in
+// this file. See graph.go, then addnode.go, then finally ordering.go.
+
 import (
 	"fmt"
 	"strconv"
