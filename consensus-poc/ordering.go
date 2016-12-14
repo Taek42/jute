@@ -5,32 +5,52 @@ import (
 	"crypto/sha256"
 )
 
-// nextUnorderedAncestor selects the unordered ancestor which should be ordered
-// next from a list of unordered ancestors.
-func nextUnorderedAncestor(edges []edgeName, coorespondingChildren []*GraphNode, tip *GraphNode) *GraphNode {
-	// The child with the most votes on its edge to the parent wins. If
-	// multiple children have the winning number of edge votes, select between
-	// them randomly using the hash of the tip block as a seed.
-	//
-	// As this is a simulation, the names of the blocks are used to seed the
-	// rng in lieu of their hashes.
-	winningVotes := 0
+// directUnorderedAncestors returns a list of all ancestors of 'tip' that are
+// not ordered, yet are direct children of ordered blocks.
+func directUnorderedAncestors(ordered map[nodeName]bool, tip *GraphNode) (duas []*GraphNode) {
+	unvisited := tip.parents
+	for len(unvisited) != 0 {
+		// Pop a node off of the unvisited stack.
+		ancestor := unvisited[0]
+		unvisited := unvisited[1:]
+		if ordered[ancestor.name] {
+			// All ancestors of this node are by definition also ordred, no
+			// unordered ancestors to be found here.
+			continue
+		}
+
+		// Find any edges which are pointing from an ordered node to the
+		// ancestor. If there is one, this ancestor is a direct unordered
+		// ancestor.
+		for _, parent := range ancestor.parents {
+			if ordered[parent.name] {
+				duas = append(duas, ancestor)
+				break
+			}
+		}
+
+		// Add all of the ancestor's parents to the unvisted list.
+		unvisited = append(unvisited, ancestor.parents...)
+	}
+	return duas
+}
+
+// nextUnorderedAncestor picks from a list of unordered ancestors the next
+// ancestor in the ordering. nextUnorderedAncestor assumes that all input nodes
+// are direct children of ordered nodes.
+func nextUnorderedAncestor(potentials []*GraphNode, tip *GraphNode) *GraphNode {
+	// Use the hash of the tip block and the hash of each child to
+	// deterministically choose a winner from the set of potential winners.
 	var winningHash [32]byte
-	var winner *GraphNode
-	for i, child := range coorespondingChildren {
-		e := edges[i]
-		votes := tip.relativeVoteGraph[e]
-		childHash := sha256.Sum256([]byte("salt" + tip.name + child.name))
-		if votes > winningVotes {
-			winningVotes = votes
-			winningHash = childHash
-			winner = child
-		} else if votes == winningVotes && bytes.Compare(winningHash[:], childHash[:]) < 0 {
-			winningHash = childHash
-			winner = child
+	var winningNode *GraphNode
+	for _, potential := range potentials {
+		pHash := sha256.Sum256([]byte("salt" + tip.name + potential.name))
+		if bytes.Compare(winningHash[:], pHash[:]) < 0 {
+			winningHash = pHash
+			winningNode = potential
 		}
 	}
-	return winner
+	return winningNode
 }
 
 // relativeOrdering returns the sorted graph from the perspective of the
@@ -41,76 +61,27 @@ func (gn *GraphNode) relativeOrdering() []*GraphNode {
 	for len(current.parents) != 0 {
 		current = current.parents[0]
 	}
-	genesis := current
 
+	// Grab an ordering, grabbing one bock in the primary chain at a time.
+	var ordering []*GraphNode
 	ordered := make(map[nodeName]bool)
-	queued := make(map[nodeName]bool)
-	var relativeOrdering []*GraphNode
-	var updateOrdering func(base *GraphNode, tip *GraphNode)
-	updateOrdering = func(base *GraphNode, tip *GraphNode) {
-		queued[base.name] = true
-		// Check that all ancestors of the base block are in the ordering. If
-		// not, compare all edges from blocks in the ordering to unordered
-		// ancestors and select the edge with the most votes. Set the child of
-		// that edge to the new base, and set the original base to the new tip.
-		for {
-			var importantEdges []edgeName
-			var correspondingChildren []*GraphNode
-			visited := make(map[nodeName]bool)
-			unvisited := base.parents
-			for len(unvisited) != 0 {
-				// Pop a node off of the unvisited stack.
-				ancestor := unvisited[0]
-				unvisited = unvisited[1:]
-				if ordered[ancestor.name] {
-					continue
-				}
-
-				// Find all edges that point from the ancestor to an ordered
-				// node ('importantEdges'). There may not be any. If there are
-				// not any, then an unordered ancestor of the unordered
-				// ancestor will have an edge that points to an ordered node.
-				for _, parent := range ancestor.parents {
-					if ordered[parent.name] {
-						e := edge(ancestor.name, parent.name)
-						importantEdges = append(importantEdges, e)
-						correspondingChildren = append(correspondingChildren, ancestor)
-					} else if !visited[parent.name] {
-						visited[parent.name] = true
-						unvisited = append(unvisited, parent)
-					}
-				}
-			}
-
-			// If there are no important edges, all ancestors of the base block
-			// have been orderd, exit the ancestor-ordering loop.
-			if len(importantEdges) == 0 {
-				break
-			}
-
-			// Grab a winning child from the list of important edges, and
-			// recurse using the winner as the new base, and the current base
-			// as the new tip.
-			winner := nextUnorderedAncestor(importantEdges, correspondingChildren, tip)
-			updateOrdering(winner, base)
+	for {
+		// Before 'current' can be added to the ordering, all ancestors must be
+		// added to the ordering.
+		for duas := directUnorderedAncestors(ordered, current); len(duas) != 0; {
+			winner := nextUnorderedAncestor(duas, current)
+			ordering = append(ordering, winner)
+			ordered[winner.name] = true
 		}
+		ordering = append(ordering, current)
+		ordered[current.name] = true
 
-		// All ancestors of the base are now ordered. If the base is the tip,
-		// there is nothing left to do.
-		if base == tip {
-			return
+		// If the original node has been added to the graph, the ordering is
+		// complete.
+		if current == gn {
+			break
 		}
-
-		// Add the base to the ordering, then select a new primary child and recurse.
-		relativeOrdering = append(relativeOrdering, base)
-		ordered[base.name] = true
-		_, next := primaryEdge(base, tip)
-		if queued[next.name] {
-			return
-		}
-		updateOrdering(next, tip)
+		_, current = primaryEdge(current, gn)
 	}
-	updateOrdering(genesis, gn)
-	relativeOrdering = append(relativeOrdering, gn) // Edge case.
-	return relativeOrdering
+	return ordering
 }

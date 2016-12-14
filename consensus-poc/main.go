@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 // RelativeOrdering sorts the graph using the supplied node as the tip, then

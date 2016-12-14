@@ -2,9 +2,6 @@ package main
 
 import (
 	"crypto/rand"
-	"fmt"
-	"strconv"
-	"strings"
 )
 
 // nodeName is the string version of a node's numerical counter.
