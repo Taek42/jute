@@ -272,7 +272,7 @@ for current != newBlock {
 }
 ```
 
-A full golang implementation can be found in [consensus-poc/addnode.go](consensus-poc/addnode.go)
+A full golang implementation can be found in [ordering/addnode.go](ordering/addnode.go)
 
 ##### Security Intuition Around the Edge Voting
 
@@ -320,9 +320,35 @@ algorithm is applied until the original primary child is reached. If the
 original primary child still has unordered ancestors at that point, the
 algorithm is repeated until the primary child has no more unordered ancestors.
 
-Psuedocode has been omitted for the ordering algorithm, as it's not very
-helpful. A full golang implementation can be found in
-[consensus-poc/sort.go](consensus-poc/ordering.go)
+Psuedocode for Ordering Blocks:
+```
+var ordering []block
+current := genesisBlock
+for {
+	for len(current.unorderedAncestors) != 0 {
+		var candidates []block
+		for unorderedAncestor := range unorderedAncestors {
+			for parent := unorderedAncestor.parents {
+				if ordering.Contains(parent) {
+					candidates = append(candidates, parent)
+					break
+				}
+			}
+		}
+		rng := seedRNG(Hash(current))
+		candidates = rng.Randomize(candidates)
+		ordering = append(ordering, candidates[0])
+	}
+
+	ordering = append(ordering, current)
+
+	if current == tipBlock {
+		break
+	}
+	current = current.primaryEdge.Parent // defined in Primary Edge Voting
+}
+```
+A full golang implementation can be found in [ordering/ordering.go](ordering/ordering.go)
 
 ### Practical Jute Today
 
